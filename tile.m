@@ -1,5 +1,6 @@
 function A = tile(obj, positions, varargin)
 % Copies the object to the given positions within some n-dimensional space.
+L = utils.Logger('utils.tile');
 
 %% INPUT HANDLING
 nDims = size(positions, 1);
@@ -8,7 +9,7 @@ p = inputParser;
 p.addOptional('A', [], @(x) isempty(x) || (ndims(x) == nDims));
 p.addParameter('gain', 1, @(x) isscalar(x) || isvector(x));
 p.addParameter('intersect', 'default', ...
-   @(x) ismember(x, {'add', 'logicalOr'}) && ischar(x));
+   @(x) ismember(x, {'add', 'logicalOr', 'max'}) && ischar(x));
 p.addParameter('zeroCenter', 'obj', ...
    @(x) ismember(x, {'obj', 'space', 'both', 'neither'}) && ischar(x));
 
@@ -19,16 +20,16 @@ intersectMethod = p.Results.intersect;
 zeroCenter = p.Results.zeroCenter;
 
 if ~isempty(A)
-   assert(nDims == ndims(A), 'nDims must have the same dimensions as V.');
+   L.assert(nDims == ndims(A), 'nDims must have the same dimensions as V.');
 end
-assert(ndims(positions) <= 2, ...
+L.assert(ndims(positions) <= 2, ...
    'Positions must be a 2D matrix or 1D vector.');
-assert(ndims(obj) <= nDims, ['Object must have the same number or', ...
+L.assert(ndims(obj) <= nDims, ['Object must have the same number or', ...
    ' fewer dimensions than implied by the position matrix (i.e.', ...
    ' SIZE(positions, 1)).']);
 nCopies = size(positions, 2);
 if ~isscalar(gain)
-   assert(length(gain) == nCopies, ['The gain vector must have ', ...
+   L.assert(length(gain) == nCopies, ['The gain vector must have ', ...
       ' length = size(positions, 2)']);
 end
 
@@ -117,9 +118,11 @@ switch intersectMethod
    case 'add'
       intersectFunc = @(a, b) a + b;
    case 'logicalOr'
-      intersectFunc = @(a, b) a | b;   
+      intersectFunc = @(a, b) a | b;
+   case 'max'
+      intersectFunc = @(a, b) max(a, b);
    otherwise
-      error('Unrecognized intersect method: ''%s''', intersectMethod);
+      L.error('Unrecognized intersect method: ''%s''', intersectMethod);
 end
 
 while ~isempty(newInd)
