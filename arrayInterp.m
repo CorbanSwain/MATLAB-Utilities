@@ -1,13 +1,17 @@
 function Ainterp = arrayInterp(A, dim, factor, method)
 % Interpolates an array along the specified dimension by a given factor.
 % Output size is the same as input, except along the interpolated 
-% dimension for which the new size is: factor * (size(A, dim) - 1) + 1.
+% dimension for which the new size is: factor * (size(A, dim) - 1)
+% + 1.
+%
+% See also INTERPSIZE
+L = utils.Logger('utils.arrayInterp');
 
 switch nargin
    case 3, method = 'linear';
    case 4
    otherwise
-      error(strcat('Unexpected number of arguments, 3 or 4 expected', ...
+      L.error(strcat('Unexpected number of arguments, 3 or 4 expected', ...
          ' but %d were recieved.'), nargin);
 end
 
