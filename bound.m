@@ -9,6 +9,11 @@ function X = bound(X, min, max, name)
 %char array or string used in the warning message.
 %
 %by Corban Swain, 2017
+if nargin == 0
+   unittest;
+   return
+end
+
 
 switch nargin
     case 3
@@ -24,16 +29,36 @@ greaterThanMax = X > max;
 
 if warn
     if any(lessThanMin)
-        warning('%s cannot be smaller than %d, truncating value(s).', ...
-                name, min);
+        warning('%s cannot be smaller than [%s], truncating value(s).', ...
+                name, num2str(min));
     end
     if any(greaterThanMax)
-        warning('%s cannot be larger than %d, truncating value(s).', ...
-                name, max);
+        warning('%s cannot be larger than [%s], truncating value(s).', ...
+                name, num2str(max));
     end
 end
 
-X(lessThanMin) = min;
-X(greaterThanMax) = max;
+if isscalar(min)
+   X(lessThanMin) = min;
+else
+   X(lessThanMin) = min(lessThanMin);
+end
+
+if isscalar(max)
+   X(greaterThanMax) = max;
+else
+   X(greaterThanMax) = max(greaterThanMax);
+end
+end
+
+function unittest
+assert(all(utils.bound(1:10, 0, 5, 'TestValue_1') ...
+   == [1:5, 5, 5, 5, 5, 5]));
+
+assert(all(utils.bound(1:10, flip(1:10), 10, 'TestValue_2') ...
+   == [10 9 8 7 6 6 7 8 9 10]));
+
+assert(all(utils.bound(1:10, 3, utils.bound((1:10) - 3, 4, +inf)) ...
+   == [3 3 3 4 4 4 4 5 6 7]));
 end
 

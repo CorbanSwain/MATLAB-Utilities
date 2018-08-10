@@ -3,19 +3,20 @@ function V = rot90dim(V, dim, varargin)
 %
 % Runs significantly faster than IMROTATE3 for 90 degree rotations of large 
 % martices by using ROT90, FLIP, and SHIFTDIM.
+L = utils.Logger('utils.rot90dim');
 
 %% PARSING INPUTS
-% FIXME allow for rotations of lower dimensional images
-assert(ndims(V) == 3, 'V must be 3D.')
+% FIXME - allow for rotations of lower dimensional images
+L.assert(ndims(V) == 3, 'V must be 3D.')
 
 if ~isscalar(dim)
-   assert(isvector(dim) && nnz(logical(dim)) == 1, ...
+   L.assert(isvector(dim) && nnz(logical(dim)) == 1, ...
       ['dim must be a vector or scalar. If vector, dim must have only,' ...
       ' one non zero element.'])
    dimSel = find(dim);
    dim = dimSel * sign(dim(dimSel));
 end
-assert(any(dim == [1 2 3]), ...
+L.assert(any(abs(dim) == [1 2 3]), ...
    'dim must correspond to dimension 1, 2, or 3.')
 
 p = inputParser;
@@ -36,7 +37,6 @@ if useImageCoords
          dim = 2;
       case 2
          dim = 1;
-      case 3
    end
 end
 
