@@ -7,7 +7,7 @@ DEFAULT_COLOR_WT = [0.2989, 0.5870, 0.1140];
 %% Input Parsing
 p = inputParser;
 p.addOptional('ColorWeight', DEFAULT_COLOR_WT, ...
-   @(x) isvector(x) && length(x) == 3);
+   @(x) isempty(x) || (isvector(x) && length(x) == 3));
 p.parse(varargin{:});
 colorwt = p.Results.ColorWeight;
 
