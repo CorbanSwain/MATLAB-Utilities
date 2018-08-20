@@ -60,7 +60,7 @@ for i = 1:length(bounds)
    if i == 2
       view = permute(view, [2, 1, 3]);
    end
-   alphaData(sel{:}) = true;
+   alphaData(sel{1:2}) = true;
    sels{i} = sel;
    Iout(sel{:}) = view;
 end
@@ -78,6 +78,8 @@ end
 end
 
 function unittest
+L = utils.Logger('utils.projectionView>unittest');
+L.info('mri volume image test ...');
 mri = load('mri');
 V = im2double(squeeze(mri.D));
 V = V(1:floor(end / 2), :, :);
@@ -104,4 +106,18 @@ h.CData(sel{1}{:}) = 0;
 h.CData(sel{2}{:}) = 1;
 h.CData(sel{3}{:}) = 1;
 colorbar(ax);
+L.info('\tpassed.');
+
+L.info('uint8 color image Test ...');
+V = utils.double2im(utils.fullscaleim(cat(4, V * 0.5, V, V * 0.3)), 'uint8');
+[I, bounds, sel, ad] = utils.projectionView(V);
+figure; clf; hold on;
+imagesc(I, 'AlphaData', ad);
+for i = 1:3
+   plot(bounds{i}(:, 2), bounds{i}(:, 1), ...
+      'r+-', 'LineWidth', 1, 'MarkerSize', 10);
+end
+ax = gca;
+ax.YDir = 'reverse';
+L.info('\tpassed.')
 end
