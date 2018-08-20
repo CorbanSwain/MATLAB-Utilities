@@ -1,23 +1,43 @@
 function [varargout] = projectionView(I, varargin)
+%% Unit Test
 if nargin == 0
    unittest;
    return
 end
 
+%% Parse Inputs
+%%% Check Inputs
+assert(any(ndims(I) == [3, 4]), ['I must be a grayscale (3D) or color (4D)', ...
+   'volumetric image.']);
+if ndims(I) == 4
+   assert(size(I, 4) == 3, 'I must have exactly 3 color channels');
+   isColorIm = true;
+else
+   isColorIm = false;
+end
 p = inputParser;
 p.addParameter('FillValue', 1, @(x) isnumeric(x) && isreal(x) ...
    && isscalar(x));
 p.addParameter('Margin', 10, @(x)  isnumeric(x) && isreal(x) && x >= 0);
-p.addParameter('ProjectionFun', @(i, dim) utils.maxProject(i, dim), ...
+p.addParameter('ProjectionFun', @(varargin) utils.maxProject(varargin{:}), ...
    @(x) isa(x, 'function_handle'));
+p.addParameter('ColorWeight', []);
 p.parse(varargin{:});
+
+%%% Assign Inputs
 margin = p.Results.Margin;
 fillValue = p.Results.FillValue;
 pFun = p.Results.ProjectionFun;
+colorwt = p.Results.ColorWeight;
 
-sz = size(I);
-totalSize = sz(1:2) + sz(3) + margin;
-alphaData = zeros(totalSize);
+if ~isempty(colorwt)
+   pFun = @(I, dim) pFun(I, dim, 'ColorWeight', colorwt);
+end
+
+%% Create Projection View
+sz = arrayfun(@(dim) size(I, dim), 1:4);
+totalSize = [sz(1:2) + sz(3) + margin, sz(4)];
+alphaData = zeros(totalSize(1:2)); 
 Iout = ones(totalSize) * fillValue;
 
 bounds = cell(1, 3);
@@ -31,10 +51,10 @@ projOrder = [3 1 2]; % XY, XZ, YZ
 sels = cell(1, 3);
 for i = 1:length(bounds)
    b = bounds{i};
-   sel = {b(1, 1):b(2, 1), b(1, 2):b(2, 2)}; 
+   sel = {b(1, 1):b(2, 1), b(1, 2):b(2, 2), 1:totalSize(3)}; 
    view = pFun(I, projOrder(i));
    if i == 2
-      view = view';
+      view = permute(view, [2, 1, 3]);
    end
    alphaData(sel{:}) = 1;
    sels{i} = sel;
