@@ -42,16 +42,7 @@ indnumel = prod(indsz);
 sel = zeros(indnumel, 3);
 subsel = cell(1, 3);
 
-   function [varargout] = makesubsel(a, b, idx)
-      switch dim
-         case 1
-            varargout = {idx, a, b};
-         case 2
-            varargout = {a, idx, b};
-         case 3
-            varargout = {a, b, idx};
-      end
-   end
+makesubsel = makesubselfun(dim);
 
 for i = 1:indnumel
    [a, b] = ind2sub(indsz, i);
@@ -60,6 +51,18 @@ for i = 1:indnumel
 end
 
 I = reshape(V(sel(:)), [indsz, 3]);
+end
+
+function fun = makesubselfun(dim)
+switch dim
+   case 1
+      fun = @(a, b, idx) {idx, a, b};
+   case 2
+      fun = @(a, b, idx) {a, idx, b};
+   case 3
+      fun = @(a, b, idx) {a, b, idx};
+end
+fun = @(a, b, idx) utils.cell2csl(fun(a, b, idx));
 end
 
 function unittest
