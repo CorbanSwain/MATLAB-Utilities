@@ -92,6 +92,7 @@ else
       x = s.(fnames{iField});
       
       if (ischar(x) && isvector(x)) || (isstring(x) && isscalar(x))
+         x = strrep(string(x), '%', '%%%%');
          if ischar(x)
             str(iField) = sprintf("'%s'", x);
          else
