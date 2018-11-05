@@ -84,7 +84,8 @@ mri = load('mri');
 V = im2double(squeeze(mri.D));
 V = V(1:floor(end / 2), :, :);
 [I, bounds, sel, ad] = utils.projectionView(V);
-figure; clf; hold on;
+fig = figure(1); clf; hold on;
+fig.Position = [100 91 1124 527];
 imagesc(I, 'AlphaData', ad);
 for i = 1:3
    plot(bounds{i}(:, 2), bounds{i}(:, 1), ...
@@ -92,9 +93,12 @@ for i = 1:3
 end
 ax = gca;
 ax.YDir = 'reverse';
+ax.Visible = 'off';
 colorbar(ax);
+utils.addProjViewLabels(fig, ax, bounds, 'Color', 'r');
 
-figure; clf; hold on;
+
+figure(2); clf; hold on;
 h = imagesc(I, 'AlphaData', ad);
 for i = 1:3
    plot(flip(bounds{i}(:, 2)), bounds{i}(:, 1), ...
@@ -109,9 +113,9 @@ colorbar(ax);
 L.info('\tpassed.');
 
 L.info('uint8 color image Test ...');
-V = utils.double2im(utils.fullscaleim(cat(4, V * 0.5, V, V * 0.3)), 'uint8');
+V = utils.double2im(utils.fullscaleim(cat(4, V * 1, V * 0, V * 1)), 'uint8');
 [I, bounds, sel, ad] = utils.projectionView(V);
-figure; clf; hold on;
+figure(3); clf; hold on;
 imagesc(I, 'AlphaData', ad);
 for i = 1:3
    plot(bounds{i}(:, 2), bounds{i}(:, 1), ...
