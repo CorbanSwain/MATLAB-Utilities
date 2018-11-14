@@ -1,6 +1,5 @@
 function addProjViewLabels(fig, ax, bounds, varargin)
 
-axlabel = {'X', 'Y'; 'X', 'Z'; 'Z', 'Y'};
 ip = inputParser;
 ip.addParameter('Color', 'k');
 ip.parse(varargin{:});
@@ -12,28 +11,61 @@ for iView = 1:3
    newSizes = b(2, [2 1]) - b(1, [2 1]);
    allSizes = [allSizes, newSizes(:)'];
 end
+axlabel = {'X', 'Y'; 'X', 'Z'; 'Z', 'Y'};
 allSizes = unique(allSizes);
 minDimSizes = min(allSizes);
 arrowLength = min(minDimSizes * 0.6, max(allSizes) * 0.2);
-arrowMargin = minDimSizes * - 0.18;
-arrowOrigin = minDimSizes * -0.05;
+arrowMargin = minDimSizes * 0.1;
+arrowOrigin = minDimSizes * 0.1;
+textOffsetFraction = .02;
 
 for iView = 1:3
    b = bounds{iView};
-   arrow1Pos = {b(1, 2) + [arrowMargin, arrowMargin + arrowLength], ...
+   horzArrowPos = {b(1, 2) + [arrowMargin, arrowMargin + arrowLength], ...
       b(1, 1) + [arrowOrigin, arrowOrigin]};
-   arrow2Pos = {b(1, 2) + [arrowOrigin, arrowOrigin], ...
+   vertArrowPos = {b(1, 2) + [arrowOrigin, arrowOrigin], ...
       b(1, 1) + [arrowMargin, arrowMargin + arrowLength]};
    
-   [arrow1Pos{:}] = utils.du2fu(ax, arrow1Pos{:});
-   [arrow2Pos{:}] = utils.du2fu(ax, arrow2Pos{:});
-
-   annotationArgs= {'Color', mainColor, 'HeadStyle', 'cback2'};
+   quiverPos = { ...
+      [horzArrowPos{1}(1), vertArrowPos{1}(1)], ...
+      [horzArrowPos{2}(1), vertArrowPos{2}(1)], ...
+      [arrowLength,        0], ...
+      [0,                  arrowLength]};
    
-   annotation(fig, 'textarrow', arrow1Pos{:}, annotationArgs{:}, 'String', ...
-      axlabel{iView, 1}, 'VerticalAlignment', 'middle', ...
-      'HorizontalAlignment', 'left');
-   annotation(fig, 'textarrow', arrow2Pos{:}, annotationArgs{:}, 'String', ...
-      axlabel{iView, 2}, 'VerticalAlignment', 'bottom', ...
-      'HorizontalAlignment', 'center');
+   quiver(ax, quiverPos{:}, 'Color', mainColor, 'LineWidth', 2, ...
+      'MaxHeadSize', 0.7, 'AutoScale', 'off');
+   
+   horzTextPos = {horzArrowPos{1}(1) + arrowLength ...
+      * (1 + textOffsetFraction), horzArrowPos{2}(1)};
+   vertTextPos = {vertArrowPos{1}(1), ...
+      vertArrowPos{2}(1) + arrowLength * (1 + textOffsetFraction)};
+   
+   textArgs = {'Color', mainColor, 'FontWeight', 'bold'};
+   text(ax, horzTextPos{:}, axlabel{iView, 1},'VerticalAlignment', 'middle', ...
+      'HorizontalAlignment', 'left', textArgs{:});
+   text(ax, vertTextPos{:}, axlabel{iView, 2},'VerticalAlignment', 'top', ...
+      'HorizontalAlignment', 'center', textArgs{:});
+   
+%    [horzArrowPos{:}] = utils.du2fu(ax, horzArrowPos{:});
+%    [vertArrowPos{:}] = utils.du2fu(ax, vertArrowPos{:});
+% 
+%    annotationArgsArrow = {'Color', mainColor, 'HeadStyle', 'vback1'};
+%    annotation(fig, 'textarrow', horzArrowPos{:}, annotationArgsArrow{:});
+%    annotation(fig, 'textarrow', vertArrowPos{:}, annotationArgsArrow{:});
+%    
+%    
+%    horzArrowPos{1}(2) = horzArrowPos{1}(1) + diff(horzArrowPos{1}) ...
+%       * (1 + textOffsetFraction);
+%    horzArrowPos{1} = flip(horzArrowPos{1});
+%    vertArrowPos{2}(2) = vertArrowPos{2}(1) + diff(vertArrowPos{2}) ...
+%       * (1 + textOffsetFraction);
+%    vertArrowPos{2} = flip(vertArrowPos{2});
+%    annotationArgsText = {'Color', 'none', 'HeadStyle', 'none', ...
+%       'TextColor', mainColor, 'FontWeight', 'bold'};
+%    annotation(fig, 'textarrow', horzArrowPos{:}, annotationArgsText{:}, ...
+%       'String', axlabel{iView, 1}, 'VerticalAlignment', 'middle', ...
+%       'HorizontalAlignment', 'left');
+%    annotation(fig, 'textarrow', vertArrowPos{:}, annotationArgsText{:}, ...
+%       'String', axlabel{iView, 2}, 'VerticalAlignment', 'top', ...
+%       'HorizontalAlignment', 'center');
 end

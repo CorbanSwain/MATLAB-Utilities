@@ -94,8 +94,9 @@ end
 ax = gca;
 ax.YDir = 'reverse';
 ax.Visible = 'off';
-colorbar(ax);
-utils.addProjViewLabels(fig, ax, bounds, 'Color', 'r');
+pbaspect(ax, [1 1 1]);
+drawnow;
+utils.addProjViewLabels(fig, ax, bounds, 'Color', 'w');
 
 
 figure(2); clf; hold on;
