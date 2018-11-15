@@ -15,58 +15,23 @@ classdef BoxPlot < utils.PlotBuilder
       DoLabelPoints
       DoShowOutlier
       
-      % BoxPlot Name-Value Arguments
-      PlotStyle
-      Colors
-      BoxStyle
-      Symbol
-      Notch
-      MedianStyle
-      OutlierSize
-      Widths
-      ColorGroup
-      FactorDirection
-      FactorGap
-      FactorSeperator
-      GroupOrder
-      DataLim
-      ExtremeMode
-      Jitter
-      Whisker
-      Labels
-      LabelOrientation
-      LabelVerbosity
-      Orientation
-      Positions
    end
    
-   properties (Dependent)
-      ArgList
+   properties (Constant)
+      PlotClass = 'utils.graphics.BoxPlot';
+      PlotClassPropertyTag = '';
    end
    
    methods
-      function out = get.ArgList(self)
-         propList = self.boxplotNameValList;
-         nProps = length(propList);
-         out = {};
-         for iProp = 1:nProps
-            propName = propList{iProp};
-            selfProp = self.(propName);
-            if ~isempty(selfProp)
-               out = [out, {propName}, {selfProp}];            
-            end
-         end
-      end
       
-      function plot(self, axisHandle)        
+      function plotGraphics(self, axisHandle)        
          if self.DoShowBoxPlot
-            boxplot(axisHandle, self.X, self.Groups, self.ArgList{:});
+            boxplot(axisHandle, self.X, self.Groups, self.PlotClassArgList{:});
             self.applyBoxLineProperties(axisHandle);
          end
          if self.DoShowPoints
             self.plotPoints(axisHandle);
          end
-         self.applyStandardProps(axisHandle);
       end
       
       function plotPoints(self, axisHandle)
@@ -110,8 +75,7 @@ classdef BoxPlot < utils.PlotBuilder
          lp.X = x;
          lp.Y = y;
          lp.Text = texts;
-         lp.plot(axisHandle);         
-         
+         lp.plotGraphics(axisHandle);         
       end
       
       function applyBoxLineProperties(self, axisHandle)
@@ -148,32 +112,6 @@ classdef BoxPlot < utils.PlotBuilder
       function out = boxplotLineTags
          out = {'Box', 'Median', 'Lower Adjacent Value', ...
             'Upper Adjacent Value', 'Lower Whisker', 'Upper Whisker'};
-      end
-            
-      function out = boxplotNameValList
-         out = { ...
-            'PlotStyle'
-            'Colors'
-            'BoxStyle'
-            'Symbol'
-            'Notch'
-            'MedianStyle'
-            'OutlierSize'
-            'Widths'
-            'ColorGroup'
-            'FactorDirection'
-            'FactorGap'
-            'FactorSeperator'
-            'GroupOrder'
-            'DataLim'
-            'ExtremeMode'
-            'Jitter'
-            'Whisker'
-            'Labels'
-            'LabelOrientation'
-            'LabelVerbosity'
-            'Orientation'
-            'Positions'};
       end
    end
 end

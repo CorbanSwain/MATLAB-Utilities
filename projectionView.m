@@ -96,7 +96,7 @@ ax.YDir = 'reverse';
 ax.Visible = 'off';
 pbaspect(ax, [1 1 1]);
 drawnow;
-utils.addProjViewLabels(fig, ax, bounds, 'Color', 'w');
+utils.addProjViewLabels(ax, bounds, 'Color', 'w');
 
 
 figure(2); clf; hold on;

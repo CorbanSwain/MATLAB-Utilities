@@ -5,7 +5,8 @@ classdef FigureBuilder < handle
         Name
         Position
         SubplotSize = [1, 1]
-        PlotBuilders 
+        PlotBuilders
+        AxisConfigs
     end %properties
     
     properties (GetAccess = 'private', SetAccess = 'private')
@@ -27,17 +28,26 @@ classdef FigureBuilder < handle
             if  ~isempty(self.Position)
                 h.Position = self.Position;
             end
-            if prod(self.SubplotSize) < length(self.PlotBuilders)
+            nSubplots = prod(self.SubplotSize);
+            if  nSubplots < length(self.PlotBuilders)
                 error(['The subplot dimensions are too small ', ...
                        'for the number of plots.']);
             end
+            
+            nAxConfigs = length(self.AxisConfigs);
+            if nSubplots < nAxConfigs
+                error(['The subplot dimensions are too small ', ...
+                       'for the number of axis configurations.']);
+            end
+            
             for iPlot = 1:length(self.PlotBuilders)
                 ax = subplot(self.SubplotSize(1), ...
                              self.SubplotSize(2), iPlot);
                 hold(ax, 'on');
                 for iLayer = 1:length(self.PlotBuilders{iPlot})
-                   plot(self.PlotBuilders{iPlot}{iLayer}, ax);
+                   self.PlotBuilders{iPlot}{iLayer}.plot(ax);
                 end
+                self.AxisConfigs{iPlot}.apply(ax);
             end
         end % function figure(self)
         

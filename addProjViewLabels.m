@@ -1,4 +1,4 @@
-function addProjViewLabels(fig, ax, bounds, varargin)
+function addProjViewLabels(ax, bounds, varargin)
 
 ip = inputParser;
 ip.addParameter('Color', 'k');
@@ -15,8 +15,8 @@ axlabel = {'X', 'Y'; 'X', 'Z'; 'Z', 'Y'};
 allSizes = unique(allSizes);
 minDimSizes = min(allSizes);
 arrowLength = min(minDimSizes * 0.6, max(allSizes) * 0.2);
-arrowMargin = minDimSizes * 0.1;
-arrowOrigin = minDimSizes * 0.1;
+arrowMargin = minDimSizes * 0.06;
+arrowOrigin = minDimSizes * 0.06;
 textOffsetFraction = .02;
 
 for iView = 1:3
@@ -33,7 +33,7 @@ for iView = 1:3
       [0,                  arrowLength]};
    
    quiver(ax, quiverPos{:}, 'Color', mainColor, 'LineWidth', 2, ...
-      'MaxHeadSize', 0.7, 'AutoScale', 'off');
+      'MaxHeadSize', 0.5, 'AutoScale', 'off');
    
    horzTextPos = {horzArrowPos{1}(1) + arrowLength ...
       * (1 + textOffsetFraction), horzArrowPos{2}(1)};
@@ -45,27 +45,4 @@ for iView = 1:3
       'HorizontalAlignment', 'left', textArgs{:});
    text(ax, vertTextPos{:}, axlabel{iView, 2},'VerticalAlignment', 'top', ...
       'HorizontalAlignment', 'center', textArgs{:});
-   
-%    [horzArrowPos{:}] = utils.du2fu(ax, horzArrowPos{:});
-%    [vertArrowPos{:}] = utils.du2fu(ax, vertArrowPos{:});
-% 
-%    annotationArgsArrow = {'Color', mainColor, 'HeadStyle', 'vback1'};
-%    annotation(fig, 'textarrow', horzArrowPos{:}, annotationArgsArrow{:});
-%    annotation(fig, 'textarrow', vertArrowPos{:}, annotationArgsArrow{:});
-%    
-%    
-%    horzArrowPos{1}(2) = horzArrowPos{1}(1) + diff(horzArrowPos{1}) ...
-%       * (1 + textOffsetFraction);
-%    horzArrowPos{1} = flip(horzArrowPos{1});
-%    vertArrowPos{2}(2) = vertArrowPos{2}(1) + diff(vertArrowPos{2}) ...
-%       * (1 + textOffsetFraction);
-%    vertArrowPos{2} = flip(vertArrowPos{2});
-%    annotationArgsText = {'Color', 'none', 'HeadStyle', 'none', ...
-%       'TextColor', mainColor, 'FontWeight', 'bold'};
-%    annotation(fig, 'textarrow', horzArrowPos{:}, annotationArgsText{:}, ...
-%       'String', axlabel{iView, 1}, 'VerticalAlignment', 'middle', ...
-%       'HorizontalAlignment', 'left');
-%    annotation(fig, 'textarrow', vertArrowPos{:}, annotationArgsText{:}, ...
-%       'String', axlabel{iView, 2}, 'VerticalAlignment', 'top', ...
-%       'HorizontalAlignment', 'center');
 end

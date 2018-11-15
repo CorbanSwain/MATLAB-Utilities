@@ -21,6 +21,12 @@ classdef LinePlot < utils.PlotBuilder
       Text
    end
    
+   properties (Constant)
+      PlotClass = {'matlab.graphics.chart.primitive.Line', ...
+         'matlab.graphics.chart.primitive.ErrorBar'}
+      PlotClassPropertyTag = {'', 'ErrBar'}
+   end
+   
    methods
       function set.X(self, val)
          self.X = utils.convert2cell(val);
@@ -37,7 +43,7 @@ classdef LinePlot < utils.PlotBuilder
          end
       end
       
-      function plot(self, axisHandle)
+      function plotGraphics(self, axisHandle)
          if isempty(self.Y)
             error('Y-Values must be passed to build a plot.');
          end
@@ -148,7 +154,6 @@ classdef LinePlot < utils.PlotBuilder
          for i = 1:length(self.Text)
             text(axisHandle, self.Text{i}{:})
          end
-         self.applyStandardProps(axisHandle);
       end
    end
    
