@@ -56,7 +56,16 @@ classdef FigureBuilder < handle
                 figure(self);
             end
             self.saveFigure(self.FigureHandle, varargin{:});
-        end % function save(self)
+        end % function save(self, varargin)
+        
+        function close(self)
+           if ~isempty(self.FigureHandle)
+              close(self.FigureHandle)
+           else
+              warning(['The figure cannot be closed since it has not', ...
+                 ' yet ben drawn.']);
+           end
+        end
     end % methods
     
     methods (Static)
@@ -91,8 +100,10 @@ classdef FigureBuilder < handle
                     name = [name, '_', f.Name];
                 end
             end
-            filename = fullfile(figureDir, [name, '.png']);
-            print(f, filename,'-dpng','-r300');
+            filePath = fullfile(figureDir, [name, '.png']);
+            % print(f, filename,'-dpng','-r300');
+            % saveas(f, filename)
+            export_fig(f, filePath, '-m2', '-transparent'); 
         end % saveFigure()
         
         function setDefaults

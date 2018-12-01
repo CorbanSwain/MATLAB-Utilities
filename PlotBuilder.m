@@ -1,71 +1,42 @@
-classdef PlotBuilder < dynamicprops & matlab.mixin.Copyable
+classdef PlotBuilder < utils.DynamicShadow
    
-   properties (Constant, Abstract)
-      PlotClass
-      PlotClassPropertyTag
-   end
-
    methods (Abstract)
       plotGraphics(self, axisHandle)
-   end     
-   
-
+   end
    
    properties (Dependent)
-      PlotClassProperties
-      PlotClassArgList
+      ShadowClassArgList
    end
    
    properties (NonCopyable)
       PlotHandle
    end
    
-   methods
-      function self = PlotBuilder
-         if ~iscell(self.PlotClassPropertyTag)
-            cellfun(@(p) self.addprop(strcat(self.PlotClassPropertyTag, p)), ...
-               self.PlotClassProperties);
-         else
-            cellfun(@(t, pcell) ...
-               cellfun(@(p) self.addprop(strcat(t, p)), pcell), ...
-               self.PlotClassPropertyTag, self.PlotClassProperties); 
-         end
-      end
-      
+   methods      
       function plot(self, axisHandle)
-         self.plotGraphics(self, axisHandle);
+         self.plotGraphics(axisHandle);
       end
       
-      function out = get.PlotClassProperties(self)
-         if ~iscell(self.PlotClass)
-            out = properties(self.PlotClass);
-         else
-            out = utils.cellmap(@(c) properties(c), self.PlotClass);
-         end
-      end
-      
-      function out = get.PlotClassArgList(self)
+      function out = get.ShadowClassArgList(self)
          function argList = makeArgListHelper(propList, tag)
             argList = {};
             for iProp = 1:length(propList)
                propName = propList{iProp};
                propVal = self.([tag, propName]);
                if ~isempty(propVal)
-                  argList = [argList, {propName}, {propVal}];
+                  validPropName = propName((length(tag) + 1):end);
+                  argList = [argList, {validPropName}, {propVal}];
                end
             end
          end
-      
-         props = self.PlotClassProperties;
-         tags = self.PlotClassPropertyTag;
-         if ~iscell(tags)
-            out = makeArgListHelper(props, tags);
-         else
-            out = utils.cellmap(@(p, t) makeArgListHelper(p, t), props, tags);
-         end
+         
+         props = self.ShadowClassRenamedPropNames;
+         tags = self.ShadowClassTagCell;
+         out = utils.cellmap(@(p, t) makeArgListHelper(p, t), props, tags);
+         out = [out{:}];
       end
       
-      function applyPlotClassProps(self, varargin)
+      function applyShadowClassProps(self, varargin)
          ip = inputParser;
          ip.addOptional('ObjectHandle', self.PlotHandle);
          ip.parse(varargin{:});
@@ -82,8 +53,8 @@ classdef PlotBuilder < dynamicprops & matlab.mixin.Copyable
             end
          end
          
-         props = self.PlotClassProperties;
-         tags = self.PlotClassPropertyTag;
+         props = self.ShadowClassRenamedPropNames;
+         tags = self.ShadowClassTagCell;
          if ~iscell(tags)
             applyPropsHelper(props, tags)
          else

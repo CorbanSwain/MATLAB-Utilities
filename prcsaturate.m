@@ -10,6 +10,7 @@ p = ip.Results.p;
 gain = ip.Results.gain;
 doFullScale = ip.Results.fullscale;
 
+
 if doFullScale
    I = utils.fullscaleim(I); % min(I) is 0 and max(I) is 1
    if p == 0
@@ -17,7 +18,12 @@ if doFullScale
    elseif p == 100
       I(:) = Inf; 
    else
-      I = I / prctile(I(:), 100 - p) * gain;
+      pctCalc = prctile(I(:), 100 - p);
+      if pctCalc == 0
+         warning('The given percent value is too large, clipping all pixels.');
+         pctCalc = min(I(I > 0));
+      end
+      I = I / pctCalc * gain;
    end
    % no factor to return since the image was shifted
 else

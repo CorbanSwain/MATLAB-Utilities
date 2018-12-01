@@ -89,7 +89,7 @@ if numelB > minChunkSz
    [~, sv] = memory;
    avalailableMem = sv.PhysicalMemory.Available;
    L.trace('Avalible Memory: %f GB', avalailableMem / 1E9);
-   heuristic = 15 * 32;
+   heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
    threshChunkSz = chunkSz * 4;
    L.trace('Threshold chunk size = %.5e', threshChunkSz);

@@ -6,10 +6,10 @@ classdef LinePlot < utils.PlotBuilder
       LineSpecCycleLength
       ColorOrderCycleLength
       LineSpec = {'-'} % setter update cell length
-      MarkerSize % setter update cell length
-      MarkerFaceColor % setter update cell length
+      % MarkerSize % setter update cell length
+      % MarkerFaceColor % setter update cell length
       FillMarker = true
-      LineWidth % setter update cell length
+      % LineWidth % setter update cell length
       LegendLabels
       LegendLineWidth = 1.5
       LegendLocation = 'best'
@@ -22,9 +22,10 @@ classdef LinePlot < utils.PlotBuilder
    end
    
    properties (Constant)
-      PlotClass = {'matlab.graphics.chart.primitive.Line', ...
+      ShadowClass = {'matlab.graphics.chart.primitive.Line', ...
          'matlab.graphics.chart.primitive.ErrorBar'}
-      PlotClassPropertyTag = {'', 'ErrBar'}
+      ShadowClassTag = {'', 'ErrBar'}
+      ShadowClassExcludeList = {{''}, {''}}
    end
    
    methods
@@ -67,7 +68,7 @@ classdef LinePlot < utils.PlotBuilder
             axisHandle = subplot(1, 1, 1);
          end
          plotSettingNames = {'MarkerSize','MarkerFaceColor', ...
-            'LineWidth'};
+            'LineWidth', 'Color'};
          lineSpecIndex = 1;
          for i = 1:nYVals
             % FIXME - maybe functionalize this more? Be able to take in

@@ -1,21 +1,20 @@
-classdef QuiverPlot < utils.PlotBuilder
-   
+classdef TextPlot < utils.PlotBuilder
+  
    properties
       X
       Y
-      U
-      V
+      Text
    end
    
    properties (Constant)
-     ShadowClass = 'matlab.graphics.chart.primitive.Quiver'
+     ShadowClass = 'matlab.graphics.primitive.Text'
      ShadowClassTag = ''
      ShadowClassExcludeList = ''
    end
    
    methods
       function plotGraphics(self, axisHandle)
-         self.PlotHandle = quiver(axisHandle, self.X, self.Y, self.U, self.V);
+         self.PlotHandle = text(axisHandle, self.X, self.Y, self.Text);
          self.applyShadowClassProps;         
       end
    end

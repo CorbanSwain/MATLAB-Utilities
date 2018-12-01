@@ -19,6 +19,7 @@ p.addParameter('Margin', 10, @(x)  isnumeric(x) && isreal(x) && x >= 0);
 p.addParameter('ProjectionFun', @(varargin) utils.maxProject(varargin{:}), ...
    @(x) isa(x, 'function_handle'));
 p.addParameter('ColorWeight', []);
+p.addParameter('SizeOnly', false);
 p.parse(varargin{:});
 
 %%% Assign Inputs
@@ -32,6 +33,7 @@ if isempty(fillValue)
       fillValue = 1;
    end
 end
+doSizeOnly = p.Results.SizeOnly;
 colorwt = p.Results.ColorWeight;
 pFun = p.Results.ProjectionFun;
 if ~isempty(colorwt)
@@ -41,6 +43,10 @@ end
 %% Create Projection View
 sz = arrayfun(@(dim) size(I, dim), 1:4);
 totalSize = [sz(1:2) + sz(3) + margin, sz(4)];
+if doSizeOnly
+   varargout = {totalSize};
+   return;
+end
 alphaData = false(totalSize(1:2));
 Iout = ones(totalSize, outclass) * fillValue;
 
@@ -84,19 +90,31 @@ mri = load('mri');
 V = im2double(squeeze(mri.D));
 V = V(1:floor(end / 2), :, :);
 [I, bounds, sel, ad] = utils.projectionView(V);
-fig = figure(1); clf; hold on;
-fig.Position = [100 91 1124 527];
-imagesc(I, 'AlphaData', ad);
+
+fb = utils.FigureBuilder;
+fb.Number = 1;
+fb.Position = [100 91 1124 527];
+
+pvPlots = utils.ImagePlot.projView(V);
+diagPlots = cell(1, 3);
 for i = 1:3
-   plot(bounds{i}(:, 2), bounds{i}(:, 1), ...
-      'r+-', 'LineWidth', 1, 'MarkerSize', 10);
+   lp = utils.LinePlot;
+   lp.X = bounds{i}(:, 2);
+   lp.Y = bounds{i}(:, 1);
+   lp.LineSpec = {'r+-'};
+   lp.LineWidth = {1};
+   lp.MarkerSize = {10};
+   diagPlots{i} = lp;
 end
-ax = gca;
-ax.YDir = 'reverse';
-ax.Visible = 'off';
-pbaspect(ax, [1 1 1]);
-drawnow;
-utils.addProjViewLabels(ax, bounds, 'Color', 'w');
+
+axConfig = utils.AxisConfiguration;
+axConfig.YDir = 'reverse';
+axConfig.Visible = 'off';
+axConfig.PBAspect = [1 1 1];
+
+fb.AxisConfigs = {axConfig};
+fb.PlotBuilders = {[pvPlots, diagPlots]};
+fb.figure;
 
 
 figure(2); clf; hold on;

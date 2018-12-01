@@ -40,7 +40,7 @@ function [varargout] = dftransform(A, rotation, translation, varargin)
 %                       about the x, y and z axes.
 %
 %      translation      Vector of length 3 specitying the translation, in
-%                       pixels, along the x, y and z axes.
+%                       voxels, along the x, y and z axes.
 %
 %   Output
 %   ------

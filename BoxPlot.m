@@ -14,20 +14,25 @@ classdef BoxPlot < utils.PlotBuilder
       PointsPlotBuilder utils.LinePlot
       DoLabelPoints
       DoShowOutlier
-      
+      DefaultColor
    end
    
    properties (Constant)
-      PlotClass = 'utils.graphics.BoxPlot';
-      PlotClassPropertyTag = '';
+      ShadowClass = 'utils.graphics.BoxPlot'
+      ShadowClassTag = ''
+      ShadowClassExcludeList = ''
    end
    
    methods
       
       function plotGraphics(self, axisHandle)        
          if self.DoShowBoxPlot
-            boxplot(axisHandle, self.X, self.Groups, self.PlotClassArgList{:});
-            self.applyBoxLineProperties(axisHandle);
+            args = self.ShadowClassArgList;
+            if isempty(self.Colors) && ~isempty(self.DefaultColor)
+               args = [args, {'Colors', self.DefaultColor}];
+            end
+            boxplot(axisHandle, self.X, self.Groups, args{:});
+            self.applyBoxLineProperties(axisHandle);            
          end
          if self.DoShowPoints
             self.plotPoints(axisHandle);
@@ -63,14 +68,25 @@ classdef BoxPlot < utils.PlotBuilder
                   texts{iText} = {x{iGroup}(iT), y{iGroup}(iT), ...
                      sprintf('%d', I(iT)), 'HorizontalAlignment', 'center', ...
                      'FontSize', 8, 'FontWeight', 'bold'};
+                  if ~isempty(self.DefaultColor)
+                     texts{iText} = [texts{iText}, ...
+                        {'Color', self.DefaultColor}];
+                  end
                end
             end
          end
-         lp = self.PointsPlotBuilder;
+         lp = copy(self.PointsPlotBuilder);
          if isempty(lp)
             lp = utils.LinePlot;
-            lp.LineSpec = {'k.'};
+            lp.LineSpec = {'.'};
             lp.MarkerSize = 10;
+         end
+         if isempty(lp.Color)
+            if ~isempty(self.DefaultColor)
+               lp.Color = self.DefaultColor;
+            else
+               lp.Color = 'k';
+            end
          end
          lp.X = x;
          lp.Y = y;
