@@ -116,7 +116,8 @@ classdef FigureBuilder < handle
             filePath = fullfile(figureDir, [name, '.png']);
             % print(f, filename,'-dpng','-r300');
             % saveas(f, filename)
-            export_fig(f, filePath, '-m2', '-transparent'); 
+            utils.FigureBuilder.exportFigWrapper(f, filePath, '-m2', ...
+               '-transparent');
         end % saveFigure()
         
         function setDefaults
@@ -141,6 +142,15 @@ classdef FigureBuilder < handle
                 'defaultTextFontName', font ...
                 );
         end % setFigureDefaults()
+        
+        function exportFigWrapper(varargin)
+           exportFigPath = fullfile(utils.extensionsDir, 'export_fig_altmany');
+           cleanup = onCleanup(@() rmpath(exportFigPath));
+           addpath(exportFigPath);
+           export_fig(varargin{:});
+           clear('cleanup');
+        end
+        
     end % static methods
     
 end

@@ -1,3 +1,3 @@
 function extensionsPath = extensionsDir
-extensionsPath = fullfile(utils.utilsDir, '..', 'extensions');
+extensionsPath = fullfile(fileparts(utils.utilsDir), 'extensions');
 end
