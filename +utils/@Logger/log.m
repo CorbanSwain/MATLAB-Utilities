@@ -103,13 +103,13 @@ else
       elseif isstruct(x)
          str(iField) = utils.struct2str(x, '', preSpaces + 4 + maxLen);
       elseif (isnumeric(x) || islogical(x)) && isvector(x) ...
-            && length(x) < 5
+            && length(x) < 20
          if isscalar(x)
             str(iField) = string(x);
          else
             str(iField) = sprintf("[%s]", join(string(x)));
          end
-      elseif iscell(x) && isvector(x) && length(x) < 5 
+      elseif iscell(x) && isvector(x) && length(x) < 20
          nVals = length(x);
          innerStrings = strings(1, length(x));
          for iVal = 1:nVals

@@ -1,4 +1,3 @@
-function [varargout] = dftransform(A, rotation, translation, varargin)
 %DFTRANSFORM transforms a volumetric image with 6 degrees of freedom.
 %   B = DFTRANSFORM(A, rotation, translation) rotates A about the d1,
 %   d2, and d3 axes (in that order) as specified by the rotation vector.
@@ -46,9 +45,14 @@ function [varargout] = dftransform(A, rotation, translation, varargin)
 %   ------
 %      B               Transfomed volumetric image.
 %
-%   See also IMWARP, IMREF3D, AFFINE3D
+%      RB              Spatial refeference (imref3d) object for the transformed
+%                      volume.
+%
+%   See also IMWARP, IMREF3D, AFFINE3D, UTILS.AFFINEWARP
 %
 %   Copyright Corban Swain, 2018
+
+function [varargout] = dftransform(A, rotation, translation, varargin)
 
 L = utils.Logger('utils.dftransform');
 persistent tformCache;
@@ -88,7 +92,7 @@ if ~isempty(RB)
 end
 
 % no transformation just, potentially, a view change
-isTrivial = all(tform.T(:) == reshape(eye(4), [], 1));
+isTrivial = isequal(tform.T, eye(4));
 if isTrivial
    L.debug('Performing trivial transform')
     if isempty(RB) || doSameView
