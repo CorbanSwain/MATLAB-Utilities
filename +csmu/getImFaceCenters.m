@@ -1,9 +1,5 @@
-function points = getImFaceCenters(sz)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function points = getImFaceCenters(refSpec)
+ref = csmu.ImageRef(refSpec);
 
 limits = cat(2, ...
    ref.XWorldLimits', ...

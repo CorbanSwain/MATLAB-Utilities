@@ -4,6 +4,8 @@ classdef ImagePlot < csmu.PlotBuilder
       DoScaled = true
       Colormap
       I
+      X
+      Y
    end
    
    properties (Constant)
@@ -15,11 +17,21 @@ classdef ImagePlot < csmu.PlotBuilder
    methods
       
       function plotGraphics(self, axisHandle)
-         if self.DoScaled
-            self.PlotHandle = imagesc(axisHandle, self.I);
-         else
-            self.PlotHandle = image(axisHandle, self.I);
+         args = {axisHandle};         
+         if ~isempty(self.X) && ~isempty(self.Y)
+            args = [args, {'XData', self.X, 'YData', self.Y}];
          end
+         
+         if ~isempty(self.I)
+            args = [args, {'CData', self.I}];
+         end
+         
+         if self.DoScaled
+            self.PlotHandle = imagesc(args{:});
+         else
+            self.PlotHandle = image(args{:});
+         end
+         
          if ~isempty(self.Colormap)
             colormap(axisHandle, self.Colormap);
          end  

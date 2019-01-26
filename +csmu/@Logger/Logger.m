@@ -3,9 +3,8 @@ classdef Logger < handle
    %
    % Author:
    %       Corban Swain <CorbanSwain@gmail.com>
-   % Modified version of 'log4m':
-   %       https://www.mathworks.com/matlabcentral/fileexchange/
-   %       37701-log4m-a-powerful-and-simple-logger-for-matlab
+   % Modified version of 'log4m' by Luke Winslow <lawinslow@gmail.com>:
+   %       https://www.mathworks.com/matlabcentral/fileexchange/37701
    
    properties (Constant, Hidden = true)
       ALL   = csmu.LogLevel.ALL

@@ -1,6 +1,6 @@
 classdef DynamicShadow < dynamicprops & matlab.mixin.Copyable
    
-   properties
+   properties (Hidden = true)
       DynamicShadowProps
    end
    
@@ -10,13 +10,14 @@ classdef DynamicShadow < dynamicprops & matlab.mixin.Copyable
       ShadowClassExcludeList
    end
    
-   properties (Dependent)
+   properties (Dependent, Hidden = true)
       ShadowClassTagCell
       ShadowClassCell
       ShadowClassExcludeListCell
       AllDynamicShadowPropNames
       ShadowClassRenamedPropNames
       ShadowClassOriginalPropNames
+      ShadowClassArgList
    end
    
    methods
@@ -57,6 +58,42 @@ classdef DynamicShadow < dynamicprops & matlab.mixin.Copyable
       
       function out = get.ShadowClassOriginalPropNames(self)
         out = csmu.cellmap(@(c) properties(c), self.ShadowClassCell);
+      end
+      
+      function applyShadowClassProps(self, objectHandle)         
+         function applyPropsHelper(propList, tag)
+            for iProp = 1:length(propList)
+               propName = propList{iProp};
+               propVal = self.(propName);
+               if ~isempty(propVal)
+                  validPropName = propName((length(tag) + 1):end);
+                  objectHandle.(validPropName) = propVal;
+               end
+            end
+         end
+         
+         props = self.ShadowClassRenamedPropNames;
+         tags = self.ShadowClassTagCell;
+         cellfun(@(p, t) applyPropsHelper(p, t), props, tags);
+      end
+      
+      function out = get.ShadowClassArgList(self)
+         function argList = makeArgListHelper(propList, tag)
+            argList = {};
+            for iProp = 1:length(propList)
+               propName = propList{iProp};
+               propVal = self.([tag, propName]);
+               if ~isempty(propVal)
+                  validPropName = propName((length(tag) + 1):end);
+                  argList = [argList, {validPropName}, {propVal}];
+               end
+            end
+         end
+         
+         props = self.ShadowClassRenamedPropNames;
+         tags = self.ShadowClassTagCell;
+         out = csmu.cellmap(@(p, t) makeArgListHelper(p, t), props, tags);
+         out = [out{:}];
       end
    end
       

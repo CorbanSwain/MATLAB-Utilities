@@ -1,9 +1,5 @@
-function linePoints = getImEdgeLines(sz)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function linePoints = getImEdgeLines(refSpec)
+ref = csmu.ImageRef(refSpec);
 
 limits = cat(2, ...
    ref.XWorldLimits', ...

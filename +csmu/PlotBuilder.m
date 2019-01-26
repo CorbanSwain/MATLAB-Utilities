@@ -1,61 +1,37 @@
-classdef PlotBuilder < csmu.DynamicShadow
+classdef PlotBuilder < csmu.DynamicShadow & matlab.mixin.Heterogeneous
    
    methods (Abstract)
       plotGraphics(self, axisHandle)
-   end
-   
-   properties (Dependent)
-      ShadowClassArgList
    end
    
    properties (NonCopyable)
       PlotHandle
    end
    
-   methods      
+   methods           
       function plot(self, axisHandle)
          self.plotGraphics(axisHandle);
-      end
-      
-      function out = get.ShadowClassArgList(self)
-         function argList = makeArgListHelper(propList, tag)
-            argList = {};
-            for iProp = 1:length(propList)
-               propName = propList{iProp};
-               propVal = self.([tag, propName]);
-               if ~isempty(propVal)
-                  validPropName = propName((length(tag) + 1):end);
-                  argList = [argList, {validPropName}, {propVal}];
-               end
-            end
-         end
-         
-         props = self.ShadowClassRenamedPropNames;
-         tags = self.ShadowClassTagCell;
-         out = csmu.cellmap(@(p, t) makeArgListHelper(p, t), props, tags);
-         out = [out{:}];
-      end
+      end            
       
       function applyShadowClassProps(self, varargin)
          ip = inputParser;
          ip.addOptional('ObjectHandle', self.PlotHandle);
          ip.parse(varargin{:});
          objectHandle = ip.Results.ObjectHandle;
-         
-         function applyPropsHelper(propList, tag)
-            for iProp = 1:length(propList)
-               propName = propList{iProp};
-               propVal = self.(propName);
-               if ~isempty(propVal)
-                  validPropName = propName((length(tag) + 1):end);
-                  objectHandle.(validPropName) = propVal;
-               end
-            end
+         applyShadowClassProps@csmu.DynamicShadow(self, objectHandle);
+      end      
+      
+      function out = getGObjectFcn(self, idx)
+         if nargin == 1
+            idx = 1;
          end
-         
-         props = self.ShadowClassRenamedPropNames;
-         tags = self.ShadowClassTagCell;
-         cellfun(@(p, t) applyPropsHelper(p, t), props, tags);
+         out = @() self.PlotHandle(idx);
+      end
+   end
+   
+   methods (Static, Sealed, Access = protected)
+      function defaultObject = getDefaultScalarElement
+         defaultObject = csmu.DefaultPlotBuilder;
       end
    end
    

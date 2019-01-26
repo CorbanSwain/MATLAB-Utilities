@@ -4,7 +4,7 @@ classdef BoxPlot < csmu.PlotBuilder
       % General Properties
       X
       Groups
-      LineWidth
+      LineWidth = 2
       LineJoin
       LineStyle
       DoShowBoxPlot = true
@@ -47,7 +47,6 @@ classdef BoxPlot < csmu.PlotBuilder
          end
          
          nGroups = size(vals, 2);
-         [x, y] = deal(cell(1, nGroups));
          deoverlapArgs = {};
          if ~isempty(self.PointsMinBinSize)
             deoverlapArgs = {'MinBinSize', self.PointsMinBinSize};
@@ -57,41 +56,63 @@ classdef BoxPlot < csmu.PlotBuilder
                {self.PointsMaxSpread}];
          end
          
-         texts = cell(1, numel(vals));
-         for iGroup = 1:nGroups
-            [y{iGroup}, x{iGroup}, I] = csmu.deoverlapVals(vals(:, iGroup), ...
-               deoverlapArgs{:});
-            x{iGroup} = x{iGroup} + iGroup;
-            if self.DoLabelPoints
-               for iT = 1:length(I)
-                  iText = sub2ind(size(vals), iT, iGroup);
-                  texts{iText} = {x{iGroup}(iT), y{iGroup}(iT), ...
-                     sprintf('%d', I(iT)), 'HorizontalAlignment', 'center', ...
-                     'FontSize', 8, 'FontWeight', 'bold'};
-                  if ~isempty(self.DefaultColor)
-                     texts{iText} = [texts{iText}, ...
-                        {'Color', self.DefaultColor}];
-                  end
-               end
-            end
+         scatterPlot = copy(self.PointsPlotBuilder);         
+         if isempty(scatterPlot)
+            scatterPlot = csmu.ScatterPlot;
          end
-         lp = copy(self.PointsPlotBuilder);
-         if isempty(lp)
-            lp = csmu.LinePlot;
-            lp.LineSpec = {'.'};
-            lp.MarkerSize = 10;
+         
+         if isempty(scatterPlot.Marker)
+            scatterPlot.Marker = 'o';
          end
-         if isempty(lp.Color)
+         
+         if isempty(scatterPlot.S)
+            scatterPlot.S = 200;
+         end
+
+         if isempty(scatterPlot.LineWidth)
+            scatterPlot.LineWidth = 2;
+         end
+
+         
+         if isempty(scatterPlot.MarkerEdgeColor)
             if ~isempty(self.DefaultColor)
-               lp.Color = self.DefaultColor;
+               scatterPlot.MarkerEdgeColor = self.DefaultColor;
             else
-               lp.Color = 'k';
+               scatterPlot.MarkerEdgeColor = 'k';
             end
+         end   
+         
+         if isempty(scatterPlot.MarkerFaceColor)
+            scatterPlot.MarkerFaceColor = 'w';
+         end                              
+         
+         if self.DoLabelPoints
+            textPlot = csmu.TextPlot;
+            textPlot.HorizontalAlignment = 'center';
+            textPlot.FontSize = 8;
+            textPlot.FontWeight = 'bold';
+            if ~isempty(self.DefaultColor)
+               textPlot.Color = self.DefaultColor;
+            end
+            scatterPlot.TextBuilder = textPlot;
          end
-         lp.X = x;
-         lp.Y = y;
-         lp.Text = texts;
-         lp.plotGraphics(axisHandle);         
+         
+         for iGroup = 1:nGroups
+            iScatterPlot = copy(scatterPlot);
+            [y, x, I] = csmu.deoverlapVals(vals(:, iGroup), deoverlapArgs{:});
+            x = x + iGroup;
+            if self.DoLabelPoints
+               texts = cell(1, length(I));
+               for iText = 1:length(I)
+                  texts{iText} = sprintf('%d', I(iText));
+               end
+               iScatterPlot.Text = texts;
+            end                     
+            iScatterPlot.X = x;
+            iScatterPlot.Y = y;
+            iScatterPlot.plotGraphics(axisHandle);
+         end
+    
       end
       
       function applyBoxLineProperties(self, axisHandle)

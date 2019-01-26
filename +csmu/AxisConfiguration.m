@@ -4,16 +4,26 @@ classdef AxisConfiguration < csmu.DynamicShadow
       Grid
       TitleInterpreter = 'none'      
       PBAspect
+      Legend
    end
    
    properties (Constant)
       ShadowClass = 'matlab.graphics.axis.Axes'
       ShadowClassTag = ''
-      ShadowClassExcludeList = ''
+      ShadowClassExcludeList = 'Legend'
+   end
+   
+   properties (NonCopyable)
+      AxisHandle
+   end
+   
+   properties (Dependent)
+      Tick
    end
    
    methods            
       function apply(self, axisHandle)
+         self.AxisHandle = axisHandle;
          specialProps = {};
          function addToSpecialProps(prop)
             specialProps = [specialProps, csmu.tocell(prop)];
@@ -43,6 +53,24 @@ classdef AxisConfiguration < csmu.DynamicShadow
                else
                   axisHandle.(pName) = [-inf inf];
                end
+            end
+         end
+         
+         currentProp = {'XAxis', 'YAxis', 'ZAxis'};
+         addToSpecialProps(currentProp);
+         for iProp = 1:length(currentProp)
+            pName = currentProp{iProp};
+            pVal = self.(pName);
+            if isstruct(pVal)
+               fNames = fieldnames(pVal);
+               for iField = 1:length(fNames)
+                  fName = fNames{iField};
+                  axisHandle.(pName).(fName) = pVal.(fName);
+               end
+            elseif isempty(pVal)
+               
+            else
+               L.error('Unexpected value provided for %s', pName);
             end
          end
          
@@ -82,6 +110,16 @@ classdef AxisConfiguration < csmu.DynamicShadow
          if ~isempty(self.PBAspect)
             pbaspect(axisHandle, self.PBAspect)
          end
+         
+         if ~isempty(self.Legend)
+            self.Legend.apply(axisHandle);
+         end
+      end
+      
+      function set.Tick(self, val)
+         self.XTick = val;
+         self.YTick = val;
+         self.ZTick = val;         
       end
    end
 

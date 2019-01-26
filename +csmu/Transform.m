@@ -24,12 +24,17 @@ classdef Transform < handle & matlab.mixin.Copyable
       Affine3D
       T
       IsTrivial
+      Inverse
       
       % lowercase versions for backward compatibility
       rotation
       translation
       inputView
       outputView
+   end
+   
+   properties (Constant)
+      NumDims = 3
    end
    
    methods
@@ -43,7 +48,7 @@ classdef Transform < handle & matlab.mixin.Copyable
             if isequal(size(varargin{1}), [4, 4])
                inputType = 'transformMatrix';
             else
-               inputType = 'arraySize';
+               inputType = 'objectArraySize';
             end
          elseif isa(varargin{1}, 'affine3d')
             inputType = 'affineObject';
@@ -52,26 +57,12 @@ classdef Transform < handle & matlab.mixin.Copyable
          end
          
          switch inputType
-            case 'arraySize'
-               if length(varargin) == 1
-                  sz = varargin{1};
-                  assert(isvector(sz) || isempty(sz));
-                  if isempty(sz)
-                     self = self.emptyFun;
-                     return
-                  elseif length(sz) == 1
-                     sz = {sz, sz};
-                  else                     
-                     sz = num2cell(sz);
-                  end
+            case 'objectArraySize'
+               sz = csmu.parseSizeArgs(varargin{:});
+               if isempty(sz) || any(cell2mat(sz) == 0)
+                  self = self.emptyFun(sz{:});
                else
-                  sz = varargin;
-               end
-               self(sz{:}) = self;
-               for iArr = 1:prod(sz{:})
-                  idx = sz;
-                  [idx{:}] = ind2sub(cell2mat(sz), iArr);
-                  self(idx{:}) = copy(self(end));
+                  self(sz{:}) = copy(self);
                end
                
             case 'affineObject'
@@ -100,15 +91,14 @@ classdef Transform < handle & matlab.mixin.Copyable
          end
       end
       
-      function P = applyToPoints(self, P)
+      function P = warpPoints(self, P)         
          P = self.Affine3D.transformPointsForward(P);
       end
       
-      % adapted from dftransform
-      function [varargout] = apply(self, A, varargin)                  
-         L = csmu.Logger('csmu.Transform.apply');
+      function [varargout] = warpImage(self, I, varargin)
+         L = csmu.Logger('csmu.Transform.warpImage');
          persistent tformCache
-         if (ischar(A) || isstring(A)) && strcmpi(A, 'clear')
+         if (ischar(I) || isstring(I)) && strcmpi(I, 'clear') 
             L.debug('Clearing tformCache.');
             tformCache = [];
             return
@@ -132,7 +122,7 @@ classdef Transform < handle & matlab.mixin.Copyable
          
          if isempty(RA)
             % set volume to be centered on origin using a spatial reference
-            RA = csmu.centerImRef(size(A));
+            RA = csmu.centerImRef(size(I));
          end
         
          if ~isempty(RB)            
@@ -143,10 +133,10 @@ classdef Transform < handle & matlab.mixin.Copyable
          if self.IsTrivial
             L.debug('Performing trivial transform')
             if isempty(RB)
-               B = A;
+               B = I;
                RB = RA;
             else
-               B = csmu.changeView(A, RA, RB);
+               B = csmu.changeView(I, RA, RB);
             end
          else % (not trivial)
             cacheLength = length(tformCache);
@@ -159,7 +149,7 @@ classdef Transform < handle & matlab.mixin.Copyable
             end
             if ~doLoad
                if doSave
-                  [B, RB, Aidx, Bfilt] = csmu.affinewarp(A, RA, ...
+                  [B, RB, Aidx, Bfilt] = csmu.affinewarp(I, RA, ...
                      self.Affine3D, warpArgs{:});
                   if isempty(tformCache), tformCache = struct; end
                   i = cacheLength + 1;
@@ -169,12 +159,12 @@ classdef Transform < handle & matlab.mixin.Copyable
                   tformCache(i).Aidx = Aidx;
                   tformCache(i).class = class(B);
                else % (don't save)
-                  [B, RB] = csmu.affinewarp(A, RA, self.Affine3D, warpArgs{:});
+                  [B, RB] = csmu.affinewarp(I, RA, self.Affine3D, warpArgs{:});
                end
             else % (do load)
                B = zeros(tformCache(doLoad).RB.ImageSize, ...
                   tformCache(doLoad).class);
-               B(tformCache(doLoad).Bfilt) = A(tformCache(doLoad).Aidx);
+               B(tformCache(doLoad).Bfilt) = I(tformCache(doLoad).Aidx);
                RB = tformCache(doLoad).RB;
             end
          end
@@ -186,9 +176,41 @@ classdef Transform < handle & matlab.mixin.Copyable
                varargout = {B, RB};
          end
       end
+      
+      function imref = warpRef(self, imref)
+         imref = csmu.ImageRef(imref);       
+         newOutLims = cell(1, 3);
+         [newOutLims{:}] = self.outputLimits(imref.WorldLimits{:});
+         imref = csmu.ImageRef;
+         imref.WorldLimits = newOutLims;
+      end
+
+      function [varargout] = outputLimits(self, varargin)
+         varargout = cell(1, self.NumDims);
+         [varargout{:}] = self.Affine3D.outputLimits(varargin{:});
+      end
+            
+      function P = applyToPoints(self, P)
+         L = csmu.Logger('csmu.Transform.applyToPoints');
+         L.warn('Transform.applyToPoints is deprecated, use ''warpPoints''');
+         P = self.warpPoints(P);
+      end
+      
+      % adapted from dftransform
+      function [varargout] = apply(self, I, varargin)        
+         L = csmu.Logger('csmu.Transform.apply');
+         L.warn('Transform.apply is deprecated, use ''warpImage''');
+         varargout = cell(1, nargout);
+         [varargout{:}] = self.warpImage(I, varargin{:});
+      end
          
       function set.Affine3D(self, val)
          self.Affine3DCache = val;
+      end
+      
+      function out = get.Inverse(self)
+         % FIXME ... this could cause an issue with subclasses
+         out = csmu.Transform(self.Affine3D.invert);
       end
       
       function out = get.Affine3D(self)
@@ -282,17 +304,24 @@ classdef Transform < handle & matlab.mixin.Copyable
       end
       
       function out = mtimes(self, obj)
-         out = self;
-         out.Affine3D = affine3d(out.T * obj.T);
+         out = csmu.Transform;
+         out.Affine3D = affine3d(self.T * obj.T);
+         out = self.copyObject(out, self);
       end      
    end
    
    methods (Static)
+      function clearWarpImage
+         T = csmu.Transform;
+         T.warpImage('clear');
+      end
+      
       function outObj = copyObject(inObj, outObj)
          mc = metaclass(inObj);
          props = mc.Properties;
          for iProp = 1:length(props)
-            if ~props{iProp}.Dependent
+            if ~props{iProp}.Dependent ...
+                  && ~strcmpi(props{iProp}.SetAccess, 'none')
                outObj.(props{iProp}.Name) = inObj.(props{iProp}.Name);
             end
          end

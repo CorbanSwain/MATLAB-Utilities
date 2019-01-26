@@ -1,9 +1,5 @@
-function center = getImCenter(sz)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function center = getImCenter(refSpec)
+ref = csmu.ImageRef(refSpec);
 
 center = [ ...
    mean(ref.XWorldLimits), ...

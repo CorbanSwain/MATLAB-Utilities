@@ -1,15 +1,15 @@
 function mustBeVector(A, varargin)
 ip = inputParser;
-ip.addOptional('length', [], @isvector);
+ip.addOptional('allowedLengths', [], @isvector);
 ip.parse(varargin{:});
-allowedLengths = ip.Results.length;
+allowedLengths = ip.Results.allowedLengths;
 isOK = isvector(A) || (ismember(0, allowedLengths) && isempty(A));
-if ~isempty(ip.Results.length)
+if ~isempty(allowedLengths)
    isOK = isOK && ismember(length(A), allowedLengths);
 end
 if ~isOK
-    ME = MException('utils:validators:mustBeVector', ...
-       sprintf('Value must be a vector with length %s.', ...
+    ME = MException('csmu:validators:mustBeVector', ...
+       sprintf('Value must be a vector with length(s) [%s].', ...
        num2str(allowedLengths)));
    throw(ME);
 end

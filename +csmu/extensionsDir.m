@@ -1,3 +1,3 @@
 function extensionsPath = extensionsDir
-extensionsPath = fullfile(fileparts(utils.utilsDir), 'extensions');
+extensionsPath = fullfile(fileparts(csmu.utilsDir), 'extensions');
 end

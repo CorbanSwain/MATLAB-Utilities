@@ -35,11 +35,11 @@ classdef LinePlot < csmu.PlotBuilder
    
    methods
       function set.X(self, val)
-         self.X = csmu.convert2cell(val);
+         self.X = csmu.tocell(val);
       end
       
       function set.Y(self, val)
-         self.Y = csmu.convert2cell(val);
+         self.Y = csmu.tocell(val);
       end
       
       function self = csmu.LinePlot(X, Y)

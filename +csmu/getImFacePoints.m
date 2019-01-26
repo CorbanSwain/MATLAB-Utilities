@@ -1,9 +1,6 @@
-function points = getImFacePoints(sz, numDivisions)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function points = getImFacePoints(refSpec, numDivisions)
+ref = csmu.ImageRef(refSpec);
+
 numFacePoints = (numDivisions + 1) ^ 2;
 points = zeros(numFacePoints * 6, 3);
 

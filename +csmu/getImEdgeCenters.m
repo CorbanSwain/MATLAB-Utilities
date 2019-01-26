@@ -1,9 +1,5 @@
-function points = getImEdgeCenters(sz)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function points = getImEdgeCenters(refSpec)
+ref = csmu.ImageRef(refSpec);
 
 centers = csmu.getImCenter(ref);
 limits = cat(2, ...

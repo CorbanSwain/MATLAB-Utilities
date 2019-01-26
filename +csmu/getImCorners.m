@@ -1,9 +1,6 @@
-function corners = getImCorners(sz)
-if ~isa(sz, 'imref3d')
-   ref = imref3d(sz);
-else
-   ref = sz;
-end
+function corners = getImCorners(refSpec)
+ref = csmu.ImageRef(refSpec);
+
 corners = zeros(8, 3);
 for iCorner = 1:8
    [i1, i2, i3] = ind2sub([2 2 2], iCorner);
