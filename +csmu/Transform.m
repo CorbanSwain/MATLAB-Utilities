@@ -1,12 +1,12 @@
 classdef Transform < handle & matlab.mixin.Copyable
    properties
       Rotation {mustBeNumeric, ...
-         csmu.validators.mustBeVector(Rotation, [0 3])}
+         csmu.validators.mustBeVector(Rotation, [0, 1, 3])}
       Translation {mustBeNumeric, ...
-         csmu.validators.mustBeVector(Translation, [0 3])}
+         csmu.validators.mustBeVector(Translation, [0, 2, 3])}
       DoReverse (1, 1) logical = false
-      InputView imref3d
-      OutputView imref3d
+      InputView csmu.ImageRef
+      OutputView csmu.ImageRef
       
       % RotationUnits
       % char (default is 'deg')
@@ -17,14 +17,17 @@ classdef Transform < handle & matlab.mixin.Copyable
    end
    
    properties (GetAccess = 'private', SetAccess = 'private')
-      Affine3DCache
+      AffineCache
    end
    
    properties (Dependent)
+      AffineObj
+      Affine2D
       Affine3D
       T
       IsTrivial
       Inverse
+      NumDims
       
       % lowercase versions for backward compatibility
       rotation
@@ -34,7 +37,7 @@ classdef Transform < handle & matlab.mixin.Copyable
    end
    
    properties (Constant)
-      NumDims = 3
+      
    end
    
    methods
@@ -50,7 +53,7 @@ classdef Transform < handle & matlab.mixin.Copyable
             else
                inputType = 'objectArraySize';
             end
-         elseif isa(varargin{1}, 'affine3d')
+         elseif isa(varargin{1}, 'affine3d') || isa(varargin{1}, 'affine2d')
             inputType = 'affineObject';
          elseif isa(varargin{1}, 'csmu.Transform')
             inputType = 'transformObject';
@@ -73,7 +76,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                sz = num2cell(size(affObj));
                self(sz{:}) = self;
                for iObj = 1:length(affObj)                  
-                  self(iObj).Affine3D = affObj(iObj);
+                  self(iObj).AffineObj = affObj(iObj);
                end
                
             case 'transformMatrix'
@@ -92,7 +95,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       end
       
       function P = warpPoints(self, P)         
-         P = self.Affine3D.transformPointsForward(P);
+         P = self.AffineObj.transformPointsForward(P);
       end
       
       function [varargout] = warpImage(self, I, varargin)
@@ -150,7 +153,7 @@ classdef Transform < handle & matlab.mixin.Copyable
             if ~doLoad
                if doSave
                   [B, RB, Aidx, Bfilt] = csmu.affinewarp(I, RA, ...
-                     self.Affine3D, warpArgs{:});
+                     self.AffineObj, warpArgs{:});
                   if isempty(tformCache), tformCache = struct; end
                   i = cacheLength + 1;
                   tformCache(i).tform = copy(self);
@@ -159,7 +162,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                   tformCache(i).Aidx = Aidx;
                   tformCache(i).class = class(B);
                else % (don't save)
-                  [B, RB] = csmu.affinewarp(I, RA, self.Affine3D, warpArgs{:});
+                  [B, RB] = csmu.affinewarp(I, RA, self.AffineObj, warpArgs{:});
                end
             else % (do load)
                B = zeros(tformCache(doLoad).RB.ImageSize, ...
@@ -179,7 +182,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       
       function imref = warpRef(self, imref)
          imref = csmu.ImageRef(imref);       
-         newOutLims = cell(1, 3);
+         newOutLims = cell(1, self.NumDims);
          [newOutLims{:}] = self.outputLimits(imref.WorldLimits{:});
          imref = csmu.ImageRef;
          imref.WorldLimits = newOutLims;
@@ -187,7 +190,7 @@ classdef Transform < handle & matlab.mixin.Copyable
 
       function [varargout] = outputLimits(self, varargin)
          varargout = cell(1, self.NumDims);
-         [varargout{:}] = self.Affine3D.outputLimits(varargin{:});
+         [varargout{:}] = self.AffineObj.outputLimits(varargin{:});
       end
             
       function P = applyToPoints(self, P)
@@ -204,34 +207,65 @@ classdef Transform < handle & matlab.mixin.Copyable
          [varargout{:}] = self.warpImage(I, varargin{:});
       end
          
+      function set.AffineObj(self, val)
+         assert(strcmpi(class(val), {'affine3d', 'affine2d'}));
+         self.AffineCache = val;
+      end
+      
       function set.Affine3D(self, val)
-         self.Affine3DCache = val;
+         assert(isa(val, 'affine3d'));
+         self.AffineCache = val;
+      end
+      
+      function set.Affine2D(self, val)
+         assert(isa(val, 'affine2d'));
+         self.AffineCache = val;
       end
       
       function out = get.Inverse(self)
          % FIXME ... this could cause an issue with subclasses
-         out = csmu.Transform(self.Affine3D.invert);
+         out = csmu.Transform(self.AffineObj.invert);
       end
       
       function out = get.Affine3D(self)
-         L = csmu.Logger('csmu.Transform.get.Affine3D');
-         if ~isempty(self.Affine3DCache)
+         assert(self.NumDims == 3);
+         out = self.AffineObj;
+      end
+      
+      function out = get.Affine2D(self)
+         assert(self.NumDims == 2);
+         out = self.AffineObj;
+      end
+         
+      function out = get.NumDims(self)
+         switch class(self.AffineObj)
+            case 'affine2d'
+               out = 2;
+            case 'affine3d'
+               out = 3;
+         end
+      end
+      
+      function out = get.AffineObj(self)
+         L = csmu.Logger('csmu.Transform.get.AffineObj');
+         if ~isempty(self.AffineCache)
             if ~isempty(self.Rotation) || ~isempty(self.Translation)
-               L.warn(['Defaulting to use the provided the Affine3D \n', ...
+               L.warn(['Defaulting to use the provided the AffineObj \n', ...
                   'object rather than one constructed from the rotation \n',...
                   'and/or translation vectors. To prevent this warning \n', ...
-                  'message set either the Affine3D property or both \n', ...
+                  'message set either the AffineObj property or both \n', ...
                   'Rotation and Translation properties to an empty array.']);
             end
-            out = self.Affine3DCache;
+            out = self.AffineCache;
             if self.DoReverse
                out = out.invert;
             end
          else
             if isempty(self.Rotation) && isempty(self.Translation)
+               L.warn('Defaulting to return an affine3d object');
                out = affine3d;
             else
-               [rot, trans] = deal(zeros(1, 3));
+               [rot, trans] = deal([]);
                if ~isempty(self.Rotation)
                   L.warn(['`Rotation` property is ordered by ', ...
                      'dimension not xyz.']);
@@ -239,11 +273,26 @@ classdef Transform < handle & matlab.mixin.Copyable
                   if strcmpi(self.RotationUnits, 'rad')
                      rot = rad2deg(rot);
                   end
+                  
+                  if isempty(self.Translation)
+                     if length(rot) == 1
+                        trans = [0 0];
+                     else
+                        trans = [0 0 0];
+                     end
+                  end
                end
                if ~isempty(self.Translation)
                   L.warn(['`Translation` property is ordered by ', ...
                      'dimension not xyz.']);
                   trans = self.Translation;
+                  if isempty(self.Rotation)
+                     if length(trans) == 2
+                        rot = 0;
+                     else
+                        rot = [0 0 0];
+                     end
+                  end
                end
                out = csmu.df2tform(rot, trans, self.DoReverse);
             end
@@ -259,7 +308,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       end
       
       function out = get.T(self)
-         out = self.Affine3D.T;
+         out = self.AffineObj.T;
       end
       
       function set.T(self, val)
@@ -268,7 +317,7 @@ classdef Transform < handle & matlab.mixin.Copyable
          catch
             affObj = csmu.standard2matlabAffine(val);
          end
-         self.Affine3D = affObj;
+         self.AffineObj = affObj;
       end
       
       function out = get.rotation(self)
@@ -305,7 +354,11 @@ classdef Transform < handle & matlab.mixin.Copyable
       
       function out = mtimes(self, obj)
          out = csmu.Transform;
-         out.Affine3D = affine3d(self.T * obj.T);
+         if self.NumDims == 2
+            out.AffineObj = affine2d(self.T * obj.T);
+         else
+            out.AffineObj = affine3d(self.T * obj.T);
+         end
          out = self.copyObject(out, self);
       end      
    end

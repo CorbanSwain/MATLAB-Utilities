@@ -1,4 +1,4 @@
-classdef ImageRef < matlab.mixin.Copyable
+classdef ImageRef < csmu.Object
    properties
       Ref     
    end
@@ -51,7 +51,7 @@ classdef ImageRef < matlab.mixin.Copyable
                   if isvector(varargin{1})
                      % A valid argument to either imref2d or imref3d is
                      % passed.
-                     self.Ref = makeMatlabImRef(varargin{:});
+                     self.Ref = self.makeMatlabImRef(varargin{:});
                   else
                      % An image (2D or 3D) is passed, only need the size.
                      narginchk(1, 1);

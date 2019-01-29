@@ -511,7 +511,7 @@ classdef Logger < handle
                end
             end
          end
-      end
+      end            
       
       function fatal(self, varargin)
          if isscalar(varargin) && isa(varargin{1}, 'MException')
@@ -528,6 +528,27 @@ classdef Logger < handle
                   ME_2.rethrow;
                end
             end
+         end
+      end
+      
+      function logline(self, varargin)
+         self.logLine(varargin{:});
+      end
+      
+      function logLine(self, lineType)
+         if nargin == 1
+            lineType = 0;
+         end
+         switch lineType
+            case 1
+               self.info(['\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/', ...
+                  ' \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/']);
+            case -1
+               self.info(['/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\', ...
+                  ' /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\']);
+            otherwise
+               self.info(['|||||||||||||||||||||||||||||||||||||||||||||||||||||', ...
+                  '|||||||||']);
          end
       end
       
