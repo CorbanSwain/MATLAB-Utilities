@@ -1,5 +1,5 @@
 classdef Object < matlab.mixin.Copyable & matlab.mixin.SetGet
-   methods            
+   methods                  
       function outStruct = struct(self)
          function val = doShowProp(p)
             val = all([ ...

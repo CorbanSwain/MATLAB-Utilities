@@ -1,4 +1,4 @@
-classdef DynamicShadow < dynamicprops & matlab.mixin.Copyable
+classdef DynamicShadow < dynamicprops & csmu.Object
    
    properties (Hidden = true)
       DynamicShadowProps

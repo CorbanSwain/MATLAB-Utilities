@@ -10,6 +10,7 @@ classdef FigureBuilder < handle
       AxisConfigs
       AxisHandles
       LinkProps
+      LinkAxes
       Legend
    end %properties
    
@@ -81,6 +82,14 @@ classdef FigureBuilder < handle
             linkprop(self.AxisHandles(axsIdx), props);
          end
          
+         for iLink = 1:size(self.LinkAxes, 1)
+            [axsIdx, setting] = self.LinkAxes{iLink, :};
+            if isempty(axsIdx)
+               axsIdx = 1:length(self.AxisHandles);
+            end
+            linkaxes(self.AxisHandles(axsIdx), setting);
+         end
+         
          if ~isempty(self.Legend)
             self.Legend.apply;
          end
@@ -137,7 +146,7 @@ classdef FigureBuilder < handle
          end
          filepath = fullfile(figureDir, [name, '.png']);
          csmu.FigureBuilder.exportFigWrapper(f, filepath, '-m2', ...
-            '-transparent');
+            '-transparent', '-nocrop');
       end % saveFigure()
       
       function setDefaults

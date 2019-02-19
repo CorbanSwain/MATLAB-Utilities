@@ -48,7 +48,7 @@ classdef ImagePlot < csmu.PlotBuilder
          imPlot.Colormap = 'gray';
          
          labelPlots = csmu.addProjViewLabels(bounds, 'Color', 'w');
-         plots = [{imPlot}, labelPlots];
+         plots = [imPlot, labelPlots];
       end
       
       function fb = makeSaveProjView(V, varargin)
@@ -75,9 +75,18 @@ classdef ImagePlot < csmu.PlotBuilder
          tb.VerticalAlignment = 'middle';
          tb.HorizontalAlignment = 'center';
          
+         ac = csmu.AxisConfiguration;
+         gs = csmu.GridSpec;
+         ac.Position = gs(1, 1);
+         ac.YDir = 'reverse';
+         ac.Visible = false;
+         ac.XLim = 'auto';
+         ac.YLim = 'auto';
+         
          fb = csmu.ImagePlot.fullImageFig(I);
-         fb.PlotBuilders = {[csmu.ImagePlot.projView(V, projViewArgs{:}), ...
-            {tb}]};
+         fb.AxisConfigs = ac;
+         fb.PlotBuilders = [csmu.ImagePlot.projView(V, projViewArgs{:}), ...
+            tb];
          fb.Name = name;
          fb.figure;
          fb.save(figureDir);

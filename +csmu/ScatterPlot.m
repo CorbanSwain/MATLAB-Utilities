@@ -68,4 +68,59 @@ classdef ScatterPlot < csmu.PlotBuilder
          out = cat(2, self.X(:), self.Y(:));
       end
    end
+   
+   methods (Static)
+      function [plots] = pairedPointPlot(varargin)
+         ip = inputParser;
+         ip.addParameter('XY');
+         ip.addParameter('DoAddArrows');
+         ip.addParameter('AColor', 'r');
+         ip.addParameter('BColor', 'b');
+         ip.addParameter('Size', []);
+         ip.addParameter('ASize', []);
+         ip.addParameter('BSize', []);
+         ip.addParameter('Text', []);
+         ip.parse(varargin{:});
+         XY = ip.Results.XY;
+         doAddArrows = ip.Results.DoAddArrows;
+         aColor = ip.Results.AColor;
+         bColor = ip.Results.BColor;
+         sz = ip.Results.Size;
+         aSz = ip.Results.ASize;
+         
+         scatterPlotBP = csmu.ScatterPlot;
+         scatterPlotBP.Marker = 'o';
+         scatterPlotBP.MarkerEdgeColor = 'k';
+         scatterPlotBP.MarkerFaceColor = 'w';
+         scatterPlotBP.S = sz;
+         
+         aScatter = copy(scatterPlotBP);
+         aScatter.X = XY(:, 1, 1);
+         aScatter.Y = XY(:, 2, 1);
+         aScatter.S = aSz;
+         aScatter.MarkerEdgeColor = aColor;
+         
+         
+         bScatter = copy(scatterPlotBP);
+         bScatter.X = XY(:, 1, 2);
+         bScatter.Y = XY(:, 2, 2);
+         bScatter.S = bSz;
+         aScatter.MarkerEdgeColor = bColor;
+         
+         plots = [aScatter, bScatter];
+         
+         if doAddArrows
+            arrowPlot = csmu.QuiverPlot;
+            arrowPlot.X = aScatter.X;
+            arrowPlot.Y = aScatter.Y;
+            arrowPlot.U = bScatter.X - aScatter.X;
+            arrowPlot.V = bScatter.Y - aScatter.X;
+            arrowPlot.Color = 'k';
+            arrowPlot.LineWidth = 2;
+            arrowPlot.MaxHeadSize = 0.2;
+            arrowPlot.AutoScale = false;
+            plots = [plots, arrowPlot];
+         end                  
+      end
+   end
 end

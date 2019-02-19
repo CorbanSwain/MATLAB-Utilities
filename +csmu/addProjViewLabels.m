@@ -20,7 +20,7 @@ arrowOrigin = minDimSizes * 0.06;
 textOffsetFraction = .02;
 
 
-plotBuilders = cell(1, 9);
+plotBuilders = csmu.plotBuilders(1, 9);
 for iView = 1:3
    b = bounds{iView};
    horzArrowPos = {b(1, 2) + [arrowMargin, arrowMargin + arrowLength], ...
@@ -64,5 +64,5 @@ for iView = 1:3
    sel = zeros(1, 2);
    sel(1) = ((iView - 1) * 3) + 1;
    sel(2) = sel(1) + 2;
-   plotBuilders(sel(1):sel(2)) = {qp, tpHorz, tpVert};
+   plotBuilders(sel(1):sel(2)) = [qp, tpHorz, tpVert];
 end

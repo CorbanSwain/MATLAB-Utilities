@@ -10,7 +10,7 @@ classdef BoxPlot < csmu.PlotBuilder
       DoShowBoxPlot = true
       DoShowPoints (1, 1) logical = false
       PointsMinBinSize
-      PointsMaxSpread
+      PointsMaxSpread = 0.75
       PointsPlotBuilder csmu.LinePlot
       DoLabelPoints
       DoShowOutlier

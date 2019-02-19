@@ -208,7 +208,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       end
          
       function set.AffineObj(self, val)
-         assert(strcmpi(class(val), {'affine3d', 'affine2d'}));
+         assert(any(strcmpi(class(val), {'affine3d', 'affine2d'})));
          self.AffineCache = val;
       end
       

@@ -181,7 +181,7 @@ end
 
 function RB = parseInputs(args)
 p = inputParser;
-p.addParameter('OutputView', [], @(x) isa(x, 'imref3d'));
+p.addParameter('OutputView', []);
 p.parse(args{:});
 RB = p.Results.OutputView;
 end

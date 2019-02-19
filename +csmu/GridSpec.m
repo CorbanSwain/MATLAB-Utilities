@@ -8,6 +8,12 @@ classdef GridSpec < matlab.mixin.Copyable & matlab.mixin.SetGet
       Bottom = 0.05
       Left = 0.05
       Right = 0.05
+      GridAspectRatio (1, 2) {mustBeNumeric} = [1 1];
+   end
+   
+   properties (Dependent)
+      FigureAspectRatio
+      Size
    end
    
    properties (Dependent, Hidden = true)
@@ -84,10 +90,10 @@ classdef GridSpec < matlab.mixin.Copyable & matlab.mixin.SetGet
       end
       
       function axesPosition = subplot(self, rowSpec, colSpec)
-         assert(all(diff(rowSpec) == 1) && all(rowSpec >= 1) ...
-            && all(rowSpec <= self.NumRows))
-         assert(all(diff(colSpec) == 1) && all(colSpec >= 1) ...
-            && all(colSpec <= self.NumColumns))
+         assert(all(rowSpec >= 1) && all(rowSpec <= self.NumRows))
+         assert(all(colSpec >= 1) && all(colSpec <= self.NumColumns))
+         assert(all(diff(rowSpec) == 1));
+         assert(all(diff(colSpec) == 1));
          
          position = csmu.BoxPosition;         
          bottomLeft = self.computeSubplotPosition(rowSpec(end), colSpec(1));
@@ -113,19 +119,37 @@ classdef GridSpec < matlab.mixin.Copyable & matlab.mixin.SetGet
       end
       
       function sref = subsref(self,s)
+         L = csmu.Logger('csmu.GridSpec>subsref');
+         function bool = iscolon(sub)
+            bool = isequal(sub, ':') || isequal(sub, ":");
+         end
          switch s(1).type
             case '.'
                sref = builtin('subsref', self, s);
                
             case '()'
-               assert(length(s.subs) == 2);
+               nSubs = length(s.subs);
+               assert(any(nSubs == [1, 2]));
                args = cell(1, 2);
-               for iSubref = 1:length(s.subs)
-                  if isequal(s.subs{iSubref}, ':') ...
-                        || isequal(s.subs{iSubref}, ":")
-                     args{iSubref} = 1:self.end(iSubref);
-                  else
-                     args{iSubref} = s.subs{iSubref};
+               if nSubs == 1
+                  if iscolon(s.subs{1})
+                     args{1} = 1:self.end(1);
+                     args{2} = 1:self.end(2);
+                  else                        
+                     if isscalar(s.subs{1})
+                        [args{:}] = ind2sub(self.Size, s.subs{1});
+                     else
+                        L.warn('This syntax is not supported.');
+                        [args{:}] = ind2sub(self.Size, s.subs{1});
+                     end
+                  end
+               else
+                  for iSubref = 1:nSubs
+                     if iscolon(s.subs{iSubref})
+                        args{iSubref} = 1:self.end(iSubref);
+                     else
+                        args{iSubref} = s.subs{iSubref};
+                     end
                   end
                end
                sref = self.subplot(args{:});
@@ -134,6 +158,24 @@ classdef GridSpec < matlab.mixin.Copyable & matlab.mixin.SetGet
                error('GridSpec:subsref', ...
                   'Not a supported subscripted reference')
          end
+      end
+      
+      function out = size(self)
+         out = self.Size;
+      end
+      
+      function out = get.Size(self)
+         out = [self.NumRows, self.NumColumns];
+      end
+      
+      function widthByHeight = get.FigureAspectRatio(self)
+         height = self.NumRows + ((self.NumRows - 1) * self.HSpace);
+         width = self.NumColumns + ((self.NumColumns - 1) * self.VSpace);
+         
+         height = height / (1 - self.Top - self.Bottom);
+         width = width / (1 - self.Left - self.Right);
+         
+         widthByHeight = width / height;
       end
       
       function ind = end(self, dim, numDims)

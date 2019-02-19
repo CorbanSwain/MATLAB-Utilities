@@ -130,8 +130,4 @@ ref = csmu.ImageRef(I);
 ref.zeroCenter;
 L.info(struct(ref), 'ImageRef')
 [xl, yl, zl] = csmu.arrayLineSample(I, [0, 0, 0], 'ImageRef', ref)
-
-
-
-
 end
