@@ -16,7 +16,8 @@ ip.addParameter('Class', '');
 ip.addParameter('Compression', Tiff.Compression.PackBits);
 ip.addParameter('PlanarConfiguration', Tiff.PlanarConfiguration.Chunky);
 ip.addParameter('Photometric', []);
-ip.addParameter('WarnOverwrite', false)
+ip.addParameter('WarnOverwrite', false);
+ip.addParameter('DoFullScale', false);
 ip.parse(varargin{:});
 colorDim = ip.Results.ColorDim;
 processVersion = ip.Results.Version;
@@ -25,6 +26,7 @@ tiffCompression = ip.Results.Compression;
 tiffPlanarConfig = ip.Results.PlanarConfiguration;
 tiffPhotometric = ip.Results.Photometric;
 doWarnOverwrite = ip.Results.WarnOverwrite;
+doFullScale = ip.Results.DoFullScale;
 
 % TODO - check for and add support for other file formats
 % TODO - add additional input argument to handle casting to uint8 and other
@@ -43,7 +45,7 @@ if isempty(fileext)
    L.debug('No file extension given, assuming ''.tif''.');
    filepath = strcat(filepath, '.tif');
 else
-   assert(any(strcmpi(fileext, {'.tif', '.tiff'})), ...
+   L.assert(any(strcmpi(fileext, {'.tif', '.tiff'})), ...
       'Only writting of ''.tif'' files is supported.');
 end
 
@@ -67,11 +69,19 @@ switch ndims(V)
          case 4
             V = permute(V, [1 2 4 3]);
          otherwise
-            error('ColorDim can only be either 3 or 4');
+            L.error('ColorDim can only be either 3 or 4');
       end
    
    otherwise
-      error('Input image must have either 2, 3, or 4 dimsions');
+      L.error('Input image must have either 2, 3, or 4 dimsions');
+end
+
+if doFullScale
+   L.trace('Converting image to full scale.');
+   if ~isfloat(V)
+      V = double(V);
+   end
+   V = csmu.fullscaleim(V);
 end
 
 % convert from float if need be
@@ -106,7 +116,7 @@ switch processVersion
          elseif nChannels == 1
             tiffPhotometric = Tiff.Photometric.MinIsBlack;
          else
-            error('Cannot determine proper tiff Photometric.');
+            L.error('Cannot determine proper tiff Photometric.');
          end
       end
       L.debug(tags, 'tags');

@@ -72,6 +72,7 @@ classdef ImagePlot < csmu.PlotBuilder
          tb.X = Isz(2) - size(V, 3) / 2;
          tb.Y = Isz(1) - size(V, 3) / 2;
          tb.Text = txt;
+         tb.Interpreter = 'none';
          tb.VerticalAlignment = 'middle';
          tb.HorizontalAlignment = 'center';
          

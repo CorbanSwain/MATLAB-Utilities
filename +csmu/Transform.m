@@ -165,6 +165,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                   [B, RB] = csmu.affinewarp(I, RA, self.AffineObj, warpArgs{:});
                end
             else % (do load)
+               L.debug('Loading transform from `tformCache`.');
                B = zeros(tformCache(doLoad).RB.ImageSize, ...
                   tformCache(doLoad).class);
                B(tformCache(doLoad).Bfilt) = I(tformCache(doLoad).Aidx);
