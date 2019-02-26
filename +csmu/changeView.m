@@ -1,7 +1,8 @@
 function B = changeView(A, RA, RB)
 L = csmu.Logger('csmu.changeView');
 L.assert(all(RA.ImageSize == size(A)), ...
-   'size(A) not equal to RA.ImageSize');
+   ['size(A) not equal to RA.ImageSize.\n\tsize(A) = [%s], RA.ImageSize =', ...
+   ' [%s]'], num2str(size(A)), num2str(RA.ImageSize));
 if csmu.refeq(RA, RB)
    B = A;
 else

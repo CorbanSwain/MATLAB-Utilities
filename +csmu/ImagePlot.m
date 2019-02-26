@@ -3,6 +3,7 @@ classdef ImagePlot < csmu.PlotBuilder
    properties
       DoScaled = true
       Colormap
+      ColorLimits
       I
       X
       Y
@@ -25,15 +26,21 @@ classdef ImagePlot < csmu.PlotBuilder
          if ~isempty(self.I)
             args = [args, {'CData', self.I}];
          end
-         
+                  
          if self.DoScaled
+            if ~isempty(self.ColorLimits)
+               args = [args, {self.ColorLimits}];
+            end
             self.PlotHandle = imagesc(args{:});
          else
             self.PlotHandle = image(args{:});
+            if ~isempty(self.ColorLimits)
+               axisHandle.CLim = self.ColorLimits;
+            end
          end
          
          if ~isempty(self.Colormap)
-            colormap(axisHandle, self.Colormap);
+            csmu.colormap(axisHandle, self.Colormap);
          end  
          self.applyShadowClassProps;
       end
@@ -57,13 +64,19 @@ classdef ImagePlot < csmu.PlotBuilder
          ip.addParameter('SaveDirectory', '');
          ip.addParameter('Text', '');
          ip.addParameter('ScaleBar', []);
+         ip.addParameter('Colormap', 'gray');
          ip.addParameter('ProjectionViewArgs', {});
+         ip.addParameter('DoScaled', true);
+         ip.addParameter('CLims', []);
          ip.parse(varargin{:});
          name = ip.Results.Name;
          figureDir = ip.Results.SaveDirectory;
          txt = ip.Results.Text;
          scaleBarSpec = ip.Results.ScaleBar;
          projViewArgs = ip.Results.ProjectionViewArgs;
+         cmap = ip.Results.Colormap;
+         doScaled = ip.Results.DoScaled;
+         cLims = ip.Results.CLims;
          
          Isz = csmu.projectionView(V, projViewArgs{:}, 'SizeOnly', true);
          I = zeros(Isz);
@@ -72,6 +85,8 @@ classdef ImagePlot < csmu.PlotBuilder
          tb.X = Isz(2) - size(V, 3) / 2;
          tb.Y = Isz(1) - size(V, 3) / 2;
          tb.Text = txt;
+         tb.FontName = 'Input';
+         tb.FontSize = 10;
          tb.Interpreter = 'none';
          tb.VerticalAlignment = 'middle';
          tb.HorizontalAlignment = 'center';
@@ -84,10 +99,14 @@ classdef ImagePlot < csmu.PlotBuilder
          ac.XLim = 'auto';
          ac.YLim = 'auto';
          
+         imPlots = csmu.ImagePlot.projView(V, projViewArgs{:});
+         imPlots(1).Colormap = cmap;
+         imPlots(1).DoScaled = doScaled;
+         imPlots(1).ColorLimits = cLims;
+         
          fb = csmu.ImagePlot.fullImageFig(I);
          fb.AxisConfigs = ac;
-         fb.PlotBuilders = [csmu.ImagePlot.projView(V, projViewArgs{:}), ...
-            tb];
+         fb.PlotBuilders = [imPlots, tb];
          fb.Name = name;
          fb.figure;
          fb.save(figureDir);

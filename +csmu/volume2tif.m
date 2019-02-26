@@ -125,7 +125,12 @@ switch processVersion
       cleanup = onCleanup(@() t.close);      
       for iPage = 1:nPages         
          t.setTag(tags);
-         t.write(V(:, :, :, iPage));
+         try
+            t.write(V(:, :, :, iPage));
+         catch ME
+            L.logException(csmu.LogLevel.ERROR, ME);
+            rethrow(ME);
+         end
          t.writeDirectory;
       end
       clear('cleanup');

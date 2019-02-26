@@ -4,7 +4,7 @@ function Ainterp = arrayInterp(A, dim, factor, method)
 % dimension for which the new size is: factor * (size(A, dim) - 1)
 % + 1.
 %
-% See also INTERPSIZE
+% See also INTERPSIZE and GRIDDEDINTERPOLANT
 L = csmu.Logger('csmu.arrayInterp');
 
 switch nargin
