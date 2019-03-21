@@ -7,17 +7,24 @@
 %   B = AFFINEWARP(A, RA, tform) transforms the `A` according to `tform` and 
 %   returns the result as `B`.
 %
-%   B = AFFINEWARP(..., 'OutputView', RB) ensures the ouput is limited to the
-%   space defined by `RB`.
+%   B = AFFINEWARP(A, RA, tform, 'OutputView', RB) ensures the ouput is limited 
+%   to the space defined by `RB`.
 %
-%   [B, RB] = AFFINEWARP(...) returns the spacial reference which the output
-%   covers.
+%   [B, RB] = AFFINEWARP(A, RA, tform, ...) returns the spacial reference 
+%   which the output covers.
 %
-%   [B, RB, P, filt] = AFFINEWARP(...) returns `P` and `filt` which can be used
-%   to specify the operation performed by AFFINEWARP as a series of index
-%   assignments such that `B = zeros(RB.ImageSize); B(filt) = A(P)` repeats 
-%   the transformation. These outputs can be useful for speeding up repeated
-%   transformations on different input arrays of the same size.
+%   [B, RB, indexMap] = AFFINEWARP(A, RA, tform, ...) returns the cell array 
+%   `indexMap` which can be used to specify the operation performed by 
+%   AFFINEWARP as a series of index assignments such that 
+%   `B = AFFINEWARP(A, 'IndexMap', indexMap)` repeats the transformation. This 
+%   output can be useful for speeding up processing if the same transformation 
+%   needs to be repeatedly applied.
+%
+%   B = AFFINEWARP(A, 'IndexMap', indexMap) applies the transform specified
+%   by `indexMap` as returned in a previous call to affine transform
+%   with the tform argument specified. If the 'IndexMap' parameter is
+%   supplied, `RA`, `tform` and the 'OutputView' parameter should not be
+%   supplied.
 %
 %   AFFINEWARP() called with no arguments will perform a unit test suite on the
 %   affinewarp function, and print profiling and debugging results to the 
@@ -42,38 +49,66 @@
 %                        change how the transformed output is cropped.
 %                        * type: imref3d, csmu.ImageRef
 %
+%         'IndexMap' - a cell array containing a subscript array and a binary
+%                      index vector (as described in the Outputs section) 
+%                      returned from a prior call to AFFINEWARP.         
+%
 %   Outputs:
 %   --------
 %      B - the transformation of the input array
 %      
 %      RB - the spatial ref of the output array referenced to the input
 %           coordinate system supplied by RA. If the 'OutputView'
-%           parameter/value pair argument is specified, RB will be the same as
-%           that value.
+%           parameter is specified, RB will be the same as that value.
 %           * type: imref3d, csmu.ImageRef
 %
-%      P - the list of indices in the input volume to be assiged to a
-%          subset of the output volume. `P` and `filt` are provided such that 
-%          `B(filt) = A(P)` is equivalent to performing the transform.
-%
-%      filt - the points in the output space `B` which should be set to 
-%             points from the input `A` specified as a binary array. `P` 
-%             and `filt` are provided such that  `B(filt) = A(P)` is 
-%             equivalent to performing the transform.
+%      indexMap - the specification for the transformation using indices as a 
+%                 cell array with elements: 
+%                 1. the a subscript array for the input volume specifying 
+%                    points to be assiged to a subset of the output volume. 
+%                 2. the size of `B` as a vector
+%                 3. the points in the output space `B` which should be set to 
+%                    points from the input `A` specified as a binary index 
+%                    vector.
+%                 `indexMap` is provided such that 
+%                 `B = AFFINEWARP(A, 'IndexMap', indexMap)` is equivalent to 
+%                 performing the transform.
 %
 % See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP, 
 % IMREGTFORM, GEOMETRICTRANSFORM3D.
   
-function [varargout] = affinewarp(A, RA, tform, varargin)
+function [varargout] = affinewarp(A, varargin)
 %% Input Handling
 L = csmu.Logger('csmu.affinewarp');
 if nargin == 0
    unittest;
    return
 end
-RB = parseInputs(varargin);
+
+ip = inputParser;
+ip.addOptional('RA', [], ...
+   @(x) any(strcmpi(class(x), {'csmu.ImageRef', 'imref3d'})));
+ip.addOptional('Tform', [], ...
+   @(x) any(strcmpi(class(x), {'csmu.Transform', 'affine3d'})));
+ip.addParameter('OutputView', []);
+ip.addParameter('IndexMap', []);
+ip.parse(varargin{:});
+RA = ip.Results.RA;
+tform = ip.Results.Tform;
+RB = ip.Results.OutputView;
+indexMap = ip.Results.IndexMap;
+
+if ~isempty(indexMap)
+   [P, bSize, filt] = indexMap{:};
+   B = zeros(bSize, 'like', A);
+   B(filt) = A(sub2indFast(size(A), P));
+   varargout = {B};
+   return
+end
+
 L.assert(all(size(A) == RA.ImageSize));
-L.assert(any(nargout == [0 1 2 4]));
+nargoutchk(0, 3);
+
 %% Setup
 L.debug('Setting up transform matrices');
 if isfloat(A)
@@ -200,15 +235,12 @@ else
 end
 
 tic;
-L.debug('Converting P to cell array');
-pSz = size(P);
-P = mat2cell(P, pSz(1), [1 1 1]); 
 L.debug('Reordering P');
-P = P([2 1 3]);
+P = P(:, [2 1 3]);
 L.debug('Allocating output volume');
 B = zeros(RB.ImageSize, VARCLASS);
 L.debug('Placing points into output output space.');
-B(filt) = A(sub2ind(size(A), P{:}));
+B(filt) = A(sub2indFast(size(A), P));
 L.debug('Placing points took %.3f seconds', toc);
 
 %% Place in Space
@@ -218,8 +250,8 @@ switch nargout
       varargout = {B};
    case 2
       varargout = {B, RB};
-   case 4
-      varargout = {B, RB, P, filt};
+   case 3
+      varargout = {B, RB, {P, RB.ImageSize, filt}};
 end
 end
 
@@ -227,7 +259,6 @@ function [P, filt] = awHelper(RA, RB, T, T8, VARCLASS, chunkSel)
 L = csmu.Logger('csmu.affinewarp>awHelper');
 
 L.debug('Creating point vectors');
-% TODO - time this with padarray
 P = [gridvec(RB.ImageSize, 'ChunkSel', chunkSel, 'Class', VARCLASS), ...
    ones(length(chunkSel), 1, VARCLASS)];
 
@@ -247,11 +278,12 @@ P = P(filt, :);
 % P = double(P) * T8; % must convert to double because of indices > 1e9
 end
 
-function RB = parseInputs(args)
-p = inputParser;
-p.addParameter('OutputView', []);
-p.parse(args{:});
-RB = p.Results.OutputView;
+function ind = sub2indFast(sz, points)
+cpSz = cumprod(sz);
+sub2indTform = [1, cpSz(1:(end-1))];
+sub2indShift = 1 - sum(sub2indTform);
+idxClass = 'double';
+ind = (cast(points, idxClass) * sub2indTform') + sub2indShift;
 end
 
 function P = corners(sz, varargin)
@@ -344,6 +376,23 @@ P2 = gridvec(sz, 'ChunkSel', sel, 'Class', 'single');
 L.assert(all(all(P1(sel, :) == P2)));
 L.info('Gridvec test passed in %f seconds.', toc(a));
 
+
+%% sub2ind Test
+P = uint16(randi(200, 20000000, 3));
+aSz = ones(1, 3) * 201;
+t1 = tic;
+P1 = mat2cell(P, size(P, 1), [1 1 1]);
+t2 = tic;
+ind2 = sub2ind(aSz, P1{:});
+L.info('sub2ind took %.3f s [total], %.3f s [sub2ind alone]', toc(t1), ...
+   toc(t2));
+t1 = tic;
+ind1 = sub2indFast(aSz, P);
+L.info('sub2indFast took %.3f seconds', toc(t1));
+assert(all(ind1 == ind2));
+L.info('sub2indFast test passed.');
+clear('P', 'P1', 'ind1', 'ind2');
+
 %% Case 1
 a = tic;
 sz = [10 11 12];
@@ -360,10 +409,9 @@ sz = round([1200 975 975] * 1);
 A = rand(sz, 'single');
 RA = csmu.centerImRef(sz);
 tform = csmu.df2tform([88 0 1], [10 0 5]);
-[B, RB, P, filt] = csmu.affinewarp(A, RA, tform);
+[~, ~, idxMap] = csmu.affinewarp(A, RA, tform);
 L.info('Large volume transform test passed in %.1f seconds.', toc(a));
-B = zeros(size(B), 'like', A);
 a = tic;
-B(filt) = A(sub2ind(size(A), P{:}));
+csmu.affinewarp(A, 'IndexMap', idxMap);
 L.info('Repeated transform took %.1f seconds', toc(a));
 end
