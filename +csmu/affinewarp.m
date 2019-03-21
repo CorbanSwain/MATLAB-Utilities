@@ -175,8 +175,8 @@ if doIter
    chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
    nChunks = length(chunks);
    filt = false(1, numelB);
-   P = zeros(1, numelB);
-   Psel = [0, 0];
+   P = zeros(numelB, 3, 'uint16');
+   Psel = 0;
    startIdx = 0;
    for iChunk = 1:nChunks
       L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
@@ -186,13 +186,13 @@ if doIter
       L.debug('Placing chunk of filter');
       filt(chunkSel) = subfilt;
       L.debug('Placing chunk of A point selection');
-      Psel = [Psel(2) + 1, Psel(2) + length(subP)];
-      P(Psel(1):Psel(2)) = subP;
+      Psel = Psel(end) + 1:length(subP);
+      P(Psel, :) = subP;
       startIdx = chunkSel(end);
       L.debug('\t... took %7.3f seconds', toc);
    end
    L.debug('Removing extra points in P.');
-   P = P(1:Psel(2));
+   P = P(1:Psel(end));
 else
    L.debug('Performing computation in one pass');
    chunkSel = 1:prod(RB.ImageSize);
@@ -200,10 +200,15 @@ else
 end
 
 tic;
+L.debug('Converting P to cell array');
+pSz = size(P);
+P = mat2cell(P, pSz(1), [1 1 1]); 
+L.debug('Reordering P');
+P = P([2 1 3]);
 L.debug('Allocating output volume');
 B = zeros(RB.ImageSize, VARCLASS);
 L.debug('Placing points into output output space.');
-B(filt) = A(P);
+B(filt) = A(sub2ind(size(A), P{:}));
 L.debug('Placing points took %.3f seconds', toc);
 
 %% Place in Space
@@ -226,18 +231,20 @@ L.debug('Creating point vectors');
 P = [gridvec(RB.ImageSize, 'ChunkSel', chunkSel, 'Class', VARCLASS), ...
    ones(length(chunkSel), 1, VARCLASS)];
 
+TDimReduce = [eye(3); 0 0 0];
+
 %% Inverse Transform
 L.debug('Performing inverse transformation');
-P = round(P * T.invert.T);
+P = uint16(P * (T.invert.T * TDimReduce));
 
 %% Filter out Invalid Points
 L.debug('Building filter');
-filt = all(P >= 1, 2) & all(P <= [RA.ImageSize([2 1 3]), 1], 2);
+filt = all(P >= 1, 2) & all(P <= RA.ImageSize([2 1 3]), 2);
 L.debug('Filtering out invalid points');
 P = P(filt, :);
 
-L.debug('Converting to double then mat-multiplying to get indices');
-P = double(P) * T8; % must convert to double because of indices > 1e9
+% L.debug('Converting to double then mat-multiplying to get indices');
+% P = double(P) * T8; % must convert to double because of indices > 1e9
 end
 
 function RB = parseInputs(args)
@@ -354,5 +361,9 @@ A = rand(sz, 'single');
 RA = csmu.centerImRef(sz);
 tform = csmu.df2tform([88 0 1], [10 0 5]);
 [B, RB, P, filt] = csmu.affinewarp(A, RA, tform);
-L.info('Large volume transform test passed in %f seconds.', toc(a));
+L.info('Large volume transform test passed in %.1f seconds.', toc(a));
+B = zeros(size(B), 'like', A);
+a = tic;
+B(filt) = A(sub2ind(size(A), P{:}));
+L.info('Repeated transform took %.1f seconds', toc(a));
 end
