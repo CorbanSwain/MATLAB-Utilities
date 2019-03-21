@@ -14,6 +14,8 @@ classdef Transform < handle & matlab.mixin.Copyable
       % either 'deg' or 'rad'
       RotationUnits (1, :) char ...
          {csmu.validators.mustBeValidRotationUnit} = 'deg'
+      
+      TranslationRotationOrder (1, 1) csmu.IndexOrdering
    end
    
    properties (GetAccess = 'private', SetAccess = 'private')
@@ -267,10 +269,19 @@ classdef Transform < handle & matlab.mixin.Copyable
                out = affine3d;
             else
                [rot, trans] = deal([]);
+               idxOrder = self.TranslationRotationOrder;
                if ~isempty(self.Rotation)
-                  L.warn(['`Rotation` property is ordered by ', ...
-                     'dimension not xyz.']);
-                  rot = self.Rotation;
+                  if isempty(idxOrder)
+                     L.warn(['`Rotation` property is defaulting to order ', ...
+                        'by row-col not x-y; specify the ', ...
+                        '`TranslationRotationOrder` property to suppress', ...
+                        'this warning.']);
+                     rot = self.Rotation;
+                  else
+                     rot = idxOrder.toRowCol(self.Rotation, ...
+                        csmu.IndexType.VECTOR);
+                  end
+                  
                   if strcmpi(self.RotationUnits, 'rad')
                      rot = rad2deg(rot);
                   end
@@ -284,9 +295,16 @@ classdef Transform < handle & matlab.mixin.Copyable
                   end
                end
                if ~isempty(self.Translation)
-                  L.warn(['`Translation` property is ordered by ', ...
-                     'dimension not xyz.']);
-                  trans = self.Translation;
+                  if isempty(idxOrder)
+                     L.warn(['`Translation` property is defaulting to ', ...
+                        'order by row-col not x-y; specify the ', ...
+                        '`TranslationRotationOrder` property to suppress', ...
+                        'this warning.']);
+                     trans = self.Translation;
+                  else
+                     trans = idxOrder.toRowCol(self.Translation, ...
+                        csmu.IndexType.VECTOR);
+                  end
                   if isempty(self.Rotation)
                      if length(trans) == 2
                         rot = 0;

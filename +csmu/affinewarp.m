@@ -1,26 +1,88 @@
+%AFFINEWARP - Apply an affine transform to a 3D array.   
+%This function uses an inverse transform algorithm to assign each point in
+%the output array to a point in the input array.
+%
+%   Syntax:
+%   -------
+%   B = AFFINEWARP(A, RA, tform) transforms the `A` according to `tform` and 
+%   returns the result as `B`.
+%
+%   B = AFFINEWARP(..., 'OutputView', RB) ensures the ouput is limited to the
+%   space defined by `RB`.
+%
+%   [B, RB] = AFFINEWARP(...) returns the spacial reference which the output
+%   covers.
+%
+%   [B, RB, P, filt] = AFFINEWARP(...) returns `P` and `filt` which can be used
+%   to specify the operation performed by AFFINEWARP as a series of index
+%   assignments such that `B = zeros(RB.ImageSize); B(filt) = A(P)` repeats 
+%   the transformation. These outputs can be useful for speeding up repeated
+%   transformations on different input arrays of the same size.
+%
+%   AFFINEWARP() called with no arguments will perform a unit test suite on the
+%   affinewarp function, and print profiling and debugging results to the 
+%   console.
+%
+%   Inputs:
+%   -------
+%      A - a numeric array to be transformed. 
+%          * `ndims(A)` must equal 3.
+%
+%      RA - a spatial reference object which specifies the extents of A in 
+%           world coordinates.
+%           * type: imfef3d, csmu.ImageRef
+%           * `RA.ImageSize` must equal `size(A)`
+%
+%      tform - a transform object which specifies how to transform A.
+%              * type: affine3d, csmu.Transform
+%
+%      parameter/value pairs:
+%
+%         'OutputView' - a spatial reference object which specifies the extents 
+%                        of the output view in world coordinates. This will 
+%                        change how the transformed output is cropped.
+%                        * type: imref3d, csmu.ImageRef
+%
+%   Outputs:
+%   --------
+%      B - the transformation of the input array
+%      
+%      RB - the spatial ref of the output array referenced to the input
+%           coordinate system supplied by RA. If the 'OutputView'
+%           parameter/value pair argument is specified, RB will be the same as
+%           that value.
+%           * type: imref3d, csmu.ImageRef
+%
+%      P - the list of indices in the input volume to be assiged to a
+%          subset of the output volume. `P` and `filt` are provided such that 
+%          `B(filt) = A(P)` is equivalent to performing the transform.
+%
+%      filt - the points in the output space `B` which should be set to 
+%             points from the input `A` specified as a binary array. `P` 
+%             and `filt` are provided such that  `B(filt) = A(P)` is 
+%             equivalent to performing the transform.
+%
+% See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP, 
+% IMREGTFORM, GEOMETRICTRANSFORM3D.
+  
 function [varargout] = affinewarp(A, RA, tform, varargin)
 %% Input Handling
 L = csmu.Logger('csmu.affinewarp');
 if nargin == 0
-   levelOld = L.windowLevel;
-   cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
-   L.globalWindowLevel(L.ALL);   
-   L.info('Performing unit tests.');
    unittest;
-   clear('cleanup');
    return
 end
 RB = parseInputs(varargin);
 L.assert(all(size(A) == RA.ImageSize));
-L.assert(any(nargout == [1 2 4]));
+L.assert(any(nargout == [0 1 2 4]));
 %% Setup
-L.trace('Setting up transform matrices');
+L.debug('Setting up transform matrices');
 if isfloat(A)
    VARCLASS = class(A);
 else
    VARCLASS = 'double';
 end
-L.trace('VARCLASS = %s', VARCLASS);
+L.debug('VARCLASS = %s', VARCLASS);
 
 I = eye(4);
 shiftsel = {4, 1:3};
@@ -79,24 +141,24 @@ T8 = [RA.ImageSize(1); 1; prod(RA.ImageSize(1:2))];
 T8Shift = 1 - sum(T8);
 T8 = [T8; T8Shift];
 
-L.trace('Input image size [%s]', num2str(RA.ImageSize))
-L.trace('Output image size [%s]', num2str(RB.ImageSize))
+L.debug('Input image size [%s]', num2str(RA.ImageSize))
+L.debug('Output image size [%s]', num2str(RB.ImageSize))
 
 %% Performing Warp Computation
 numelB = prod(RB.ImageSize);
 minChunkSz = 1e8;
 if numelB > minChunkSz
-   L.trace('numelB (%.5e) over threshold (%.5e)', numelB, minChunkSz);
+   L.debug('numelB (%.5e) over threshold (%.5e)', numelB, minChunkSz);
    [~, sv] = memory;
    avalailableMem = sv.PhysicalMemory.Available;
-   L.trace('Avalible Memory: %f GB', avalailableMem / 1E9);
+   L.debug('Avalible Memory: %.1f GB', avalailableMem / 1E9);
    heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
-   threshChunkSz = chunkSz * 4;
-   L.trace('Threshold chunk size = %.5e', threshChunkSz);
+   threshChunkSz = chunkSz * 5;
+   L.debug('Threshold chunk size = %.5e', threshChunkSz);
    doIter = numelB > threshChunkSz;
 else
-   L.trace('numelB (%.5e) NOT over threshold (%.5e)', numelB, ...
+   L.debug('numelB (%.5e) NOT over threshold (%.5e)', numelB, ...
       minChunkSz);
    doIter = false;
 end
@@ -118,35 +180,35 @@ if doIter
    Psel = [0, 0];
    startIdx = 0;
    for iChunk = 1:nChunks
-      L.trace('Beginnging chunk %2d / %2d', iChunk, nChunks);
+      L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
       tic;
       chunkSel = (1:chunks(iChunk)) + startIdx;
       [subP, subfilt] = awHelper(helperArgs{:}, chunkSel);
-      L.trace('Placing chunk of filter');
+      L.debug('Placing chunk of filter');
       filt(chunkSel) = subfilt;
-      L.trace('Placing chunk of A point selection');
+      L.debug('Placing chunk of A point selection');
       Psel = [Psel(2) + 1, Psel(2) + length(subP)];
       P(Psel(1):Psel(2)) = subP;
       startIdx = chunkSel(end);
-      L.trace('\t... took %7.3f seconds', toc);
+      L.debug('\t... took %7.3f seconds', toc);
    end
-   L.trace('Removing extra points in P.');
+   L.debug('Removing extra points in P.');
    P = P(1:Psel(2));
 else
-   L.trace('Performing computation in one pass');
+   L.debug('Performing computation in one pass');
    chunkSel = 1:prod(RB.ImageSize);
    [P, filt] = awHelper(helperArgs{:}, chunkSel);
 end
 
 tic;
-L.trace('Allocating output volume');
+L.debug('Allocating output volume');
 B = zeros(RB.ImageSize, VARCLASS);
-L.trace('Placing points into output output space.');
+L.debug('Placing points into output output space.');
 B(filt) = A(P);
-L.trace('Placing points took %.3f seconds', toc);
+L.debug('Placing points took %.3f seconds', toc);
 
 %% Place in Space
-L.trace('Returning output');
+L.debug('Returning output');
 switch nargout
    case 1
       varargout = {B};
@@ -160,22 +222,22 @@ end
 function [P, filt] = awHelper(RA, RB, T, T8, VARCLASS, chunkSel)
 L = csmu.Logger('csmu.affinewarp>awHelper');
 
-L.trace('Creating point vectors');
+L.debug('Creating point vectors');
 % TODO - time this with padarray
 P = [gridvec(RB.ImageSize, 'ChunkSel', chunkSel, 'Class', VARCLASS), ...
    ones(length(chunkSel), 1, VARCLASS)];
 
 %% Inverse Transform
-L.trace('Performing inverse transformation');
+L.debug('Performing inverse transformation');
 P = round(P * T.invert.T);
 
 %% Filter out Invalid Points
-L.trace('Building filter');
+L.debug('Building filter');
 filt = all(P >= 1, 2) & all(P <= [RA.ImageSize([2 1 3]), 1], 2);
-L.trace('Filtering out invalid points');
+L.debug('Filtering out invalid points');
 P = P(filt, :);
 
-L.trace('Converting to double then mat-multiplying to get indices');
+L.debug('Converting to double then mat-multiplying to get indices');
 P = double(P) * T8; % must convert to double because of indices > 1e9
 end
 
@@ -224,7 +286,7 @@ chunkSel = p.Results.ChunkSel;
 VARCLASS = p.Results.Class;
 
 if isempty(chunkSel)
-   L.trace('Calulating grid vectors for all points');
+   L.debug('Calulating grid vectors for all points');
    %%% hardcoding for speed
    a = ones(1, 3, VARCLASS);
    b = cast(sz([2 1 3]), VARCLASS);
@@ -240,7 +302,7 @@ if isempty(chunkSel)
    % [P{[2 1 3]}] = ndgrid(P{:});
    % P = reshape(cat(nd + 1, P{:}), [], nd);
 else
-   L.trace('Calculating grid vectors for a chunk of points.');
+   L.debug('Calculating grid vectors for a chunk of points.');
    Plim = cell(3, 1);
    [Plim{:}] = ind2sub(sz, chunkSel([1, end]));
    Plim = cell2mat(Plim);
@@ -261,6 +323,11 @@ end
 
 function unittest
 L = csmu.Logger('csmu.affinewarp>utest');
+
+levelOld = L.windowLevel;
+cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
+L.globalWindowLevel(csmu.LogLevel.DEBUG);
+L.info('Performing unit tests.');
 
 %% Gridvec Test
 a = tic;

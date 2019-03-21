@@ -8,21 +8,31 @@ classdef ResolutionMeasurement < csmu.Object
       PeakProminance
       PeakValue
       Index
+      Image
    end
-   
-   
+      
    methods
-      function fb = figure(self, V, varargin)
-         
+      function fb = figure(self, varargin)         
          L = csmu.Logger(mfilename);
          
          %% Parsing Inputs
          ip = inputParser;
+         ip.addOptional('Image', self.Image);
          ip.addParameter('AnnotationText', '');
          ip.addParameter('DoShowHeightAxis', false);
+         ip.addParameter('DoMaxProjection', false);
+         ip.addParameter('ViewWidth', []);
+         ip.addParameter('Colormap', 'gray');
          ip.parse(varargin{:});
+         V = ip.Results.Image;
          annotationText = ip.Results.AnnotationText;
+         doMaxProjection = ip.Results.DoMaxProjection;
          doShowHeightAxis = ip.Results.DoShowHeightAxis;
+         cmap = ip.Results.Colormap;
+         viewWidth = ip.Results.ViewWidth;
+         
+         %% Constants
+         defaultViewWidth = 250;
          
          %% Assigning variables ...
          %%% ... from ResMeasure object
@@ -35,22 +45,65 @@ classdef ResolutionMeasurement < csmu.Object
          %%% ... from volume
          volSize = size(V);
          
-         %% Generating View
+         %% Generating View                       
+         %%% View Width
+         if isempty(viewWidth)
+            viewWidth = min(defaultViewWidth, max(volSize));
+         end         
+         xlim = point(1) + ([-1 1] * viewWidth / 2);
+         ylim = point(2) + ([-1 1] * viewWidth / 2);
+         zlim = point(3) + ([-1 1] * viewWidth / 2);
+         
+         %%% Window Selections
+         xzWindow = {max(round(zlim(1)), 1):min(round(zlim(2)), volSize(3)), ...
+            max(round(xlim(1)), 1):min(round(xlim(2)), volSize(2))};
+         yzWindow = {max(round(zlim(1)), 1):min(round(zlim(2)), volSize(3)), ...
+            max(round(ylim(1)), 1):min(round(ylim(2)), volSize(1))};
+         
+         %%% Projections / Slices
          L.info('\tGenerating Max Projections');
-         xz = permute(csmu.maxProject(V, 1), [2 1]);
-         yz = permute(csmu.maxProject(V, 2), [2 1]);
-                  
+         if doMaxProjection
+            xz = permute(csmu.maxProject(V, 1), [2 1]);
+            yz = permute(csmu.maxProject(V, 2), [2 1]);
+         else
+            ySlice = [floor(point(2)), ceil(point(2))];
+            xSlice = [floor(point(1)), ceil(point(1))];
+            yMultiplier = abs(ySlice([2, 1]) - point(2));
+            xMultiplier = abs(xSlice([2, 1]) - point(1));
+            if sum(yMultiplier) < (1 - eps)
+               yMultiplier = [1, 0];
+            end
+            if sum(xMultiplier) < (1 - eps)
+               xMultiplier = [1 0];
+            end
+            xz = V(ySlice(1), :, :) * yMultiplier(1) ...
+               + V(ySlice(2), :, :) * yMultiplier(2);
+            xz = permute(squeeze(xz), [2 1]);
+            yz = V(:, xSlice(1), :) * xMultiplier(1) ...
+               + V(:, xSlice(2), :) * xMultiplier(2);
+            yz = permute(squeeze(yz), [2 1]);
+         end    
+         
+         %%% Window Scale
+         xzWindowed = xz(xzWindow{:});
+         xzScale = [min(xzWindowed(:)), max(xzWindowed(:))];
+         
+         yzWindowed = yz(yzWindow{:});
+         yzScale = [min(yzWindowed(:)), max(yzWindowed(:))];
+         
          %% Plotting
          L.info('\tGenerating Plot');
          csmu.FigureBuilder.setDefaults;
          imPlots = csmu.plotBuilders(1, 2);
          imPlots(1) = csmu.ImagePlot;
-         imPlots(1).Colormap = 'gray';
+         imPlots(1).Colormap = cmap;
          for iPlot = 2:length(imPlots)
             imPlots(iPlot) = copy(imPlots(1));
          end
          imPlots(1).I = xz;
+         imPlots(1).ColorLimits = xzScale;
          imPlots(2).I = yz;
+         imPlots(2).ColorLimits = yzScale;
          
          linePlots = csmu.plotBuilders(1, 3);
          linePlots(1) = csmu.LinePlot;
@@ -114,12 +167,7 @@ classdef ResolutionMeasurement < csmu.Object
          texts(3).Text = sprintf('FWHM, Z\n  = %.2f um', zWidth / 2);
          texts(4).Interpreter = 'none';
          texts(4).FontSize = 9;
-         texts(4).Text = annotationText;
-         
-         viewWidth = 250;
-         xlim = point(1) + ([-1 1] * viewWidth / 2);
-         ylim = point(2) + ([-1 1] * viewWidth / 2);
-         zlim = point(3) + ([-1 1] * viewWidth / 2);
+         texts(4).Text = annotationText;         
          
          gs = csmu.GridSpec(3, 5);
          gs.VSpace = 0.35;
@@ -146,19 +194,19 @@ classdef ResolutionMeasurement < csmu.Object
          
          axisConfigs(1).XLim = xlim;
          axisConfigs(1).XLabel = 'X (voxels)';
-         axisConfigs(1).YLim = [-1 ceil(max(xLine))];
+         axisConfigs(1).YLim = [-(max(xLine) * 0.01), ceil(max(xLine))];
          axisConfigs(2).Position = gs(1, 4:5);
          
          axisConfigs(2).XLim = ylim;
          axisConfigs(2).XLabel = 'Y (voxels)';
-         axisConfigs(2).YLim = [-1 ceil(max(yLine))];
+         axisConfigs(2).YLim = [-(max(yLine) * 0.01), ceil(max(yLine))];
          axisConfigs(3).Position = gs(2:3, 1);
          
          axisConfigs(3).YAxis.Visible = 'on';
          axisConfigs(3).YAxisLocation = 'right';
          axisConfigs(3).XDir = 'reverse';
          axisConfigs(3).YLim = zlim;
-         axisConfigs(3).XLim = [-1 ceil(max(zLine))];
+         axisConfigs(3).XLim = [-(max(zLine) * 0.05), ceil(max(zLine))];
          axisConfigs(3).YLabel = 'Z (voxels)';
          for iAc = 4:6
             axisConfigs(iAc).Visible = 'off';
@@ -186,8 +234,7 @@ classdef ResolutionMeasurement < csmu.Object
          fb.LinkAxes = {[1 4], 'x'; [2 5], 'x'; [3 4 5], 'y'};
       end
    end
-   
-   
+      
    methods (Static)
       function resMeasure = calculate(V, point, varargin)        
          L = csmu.Logger(mfilename);
@@ -195,11 +242,44 @@ classdef ResolutionMeasurement < csmu.Object
          %% Parsing Inputs
          L.info('Parsing inputs');
          ip = inputParser;
+         ip.addParameter('MaximumRadius', []);         
          ip.addParameter('MinPeakDistance', []);
          ip.addParameter('MinPeakProminence', []);
          ip.parse(varargin{:});
          minPeakDistance = ip.Results.MinPeakDistance;
          minPeakProminence = ip.Results.MinPeakProminence;
+         maximumRadius = ip.Results.MaximumRadius;
+         
+         %% Locate Maximum Within Radius
+         if ~isempty(maximumRadius)
+            windowSideLength = (2 * maximumRadius) + 1;
+            windowSize = repmat(windowSideLength, 1, 3);
+            lims = csmu.ImageRef(windowSize);
+            lims.zeroCenter;
+            limShiftTransform = csmu.Transform;
+            limShiftTransform.TranslationRotationOrder = csmu.IndexOrdering.XY;
+            limShiftTransform.Translation = point;
+            lims = limShiftTransform.warpRef(lims);
+            vWindowed = csmu.changeView(V, csmu.ImageRef(V), lims);
+            [maxVal, maxIdx] = max(vWindowed(:));
+            vWindowedThresh = (vWindowed >= maxVal);
+            stats = regionprops3(vWindowedThresh, vWindowed, ...
+               'WeightedCentroid');
+            volumeSpaceTransform = csmu.Transform; 
+            
+            % transform centroid points back to the volume's space
+            pointCandidates = stats.WeightedCentroid ...
+               - ((windowSize + 1) / 2) ...
+               + point;            
+            candidateDistances = sum((pointCandidates - point) .^ 2, 2);
+            [~, candidateIdx] = min(candidateDistances);
+            candidateDistance = sqrt(candidateDistances(candidateIdx));
+            newPoint = pointCandidates(candidateIdx, :);
+            L.info(['Point has been updated to [%s] from [%s],\n\ta ', ...
+               'distance of %.1f volxels apart.'], num2str(newPoint), ...
+               num2str(point), candidateDistance);
+            point = newPoint;
+         end
          
          %% Generating Line and View
          L = csmu.Logger(mfilename);
@@ -227,6 +307,7 @@ classdef ResolutionMeasurement < csmu.Object
          [~, zIdx] = min((zLocs - point(3)) .^ 2);
          
          resMeasure = csmu.ResolutionMeasurement;
+         resMeasure.Image = V;
          resMeasure.ImageRef = csmu.ImageRef(V);
          resMeasure.Position = point;
          resMeasure.IntensityLines = {xl,           yl,           zl};

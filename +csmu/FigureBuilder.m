@@ -70,8 +70,11 @@ classdef FigureBuilder < handle
             hold(ax, 'on');
             for iLayer = 1:numel(self.PlotBuilders{iPlot})
                self.PlotBuilders{iPlot}(iLayer).plot(ax);
-            end
-            self.AxisConfigs(iPlot).apply(ax);
+            end           
+         end
+         
+         for iPlot = 1:length(self.PlotBuilders)
+             self.AxisConfigs(iPlot).apply(self.AxisHandles(iPlot));
          end
          
          for iLink = 1:size(self.LinkProps, 1)
@@ -87,7 +90,7 @@ classdef FigureBuilder < handle
             if isempty(axsIdx)
                axsIdx = 1:length(self.AxisHandles);
             end
-            linkaxes(self.AxisHandles(axsIdx), setting);
+            linkaxes(self.AxisHandles(axsIdx), lower(setting));
          end
          
          if ~isempty(self.Legend)
@@ -118,8 +121,10 @@ classdef FigureBuilder < handle
          
          p = inputParser;
          p.addOptional('figureDir', 'figures', @isstr)
+         p.addParameter('ExportOptions', {'-m1', '-transparent', '-nocrop'});
          p.parse(varargin{:})
          figureDir = p.Results.figureDir;
+         exportOptions = p.Results.ExportOptions;
          
          if ~isfolder(figureDir)
             mkdir(figureDir)
@@ -145,8 +150,7 @@ classdef FigureBuilder < handle
             end
          end
          filepath = fullfile(figureDir, [name, '.png']);
-         csmu.FigureBuilder.exportFigWrapper(f, filepath, '-m2', ...
-            '-transparent', '-nocrop');
+         csmu.FigureBuilder.exportFigWrapper(f, filepath, exportOptions{:});
       end % saveFigure()
       
       function setDefaults

@@ -97,7 +97,7 @@ classdef LinePlot < csmu.PlotBuilder
             self.PlotHandle = [self.PlotHandle, h];
             
             hold(axisHandle,'on');
-            h.AlignVertexCenters = 'on';
+            [h.AlignVertexCenters] = deal('on');
             
             if ~isempty(self.ColorOrderCycleLength)
                if (mod(i, self.ColorOrderCycleLength) == 0)
@@ -117,7 +117,9 @@ classdef LinePlot < csmu.PlotBuilder
             
             if isempty(self.MarkerFaceColor)
                if self.FillMarker
-                  h.MarkerFaceColor = h.Color;
+                  for iHandle = 1:length(h)
+                     h(iHandle).MarkerFaceColor = h(iHandle).Color;
+                  end
                end
             end
             
@@ -126,9 +128,9 @@ classdef LinePlot < csmu.PlotBuilder
                propertyVal = self.(name);
                if ~isempty(propertyVal)
                   if iscell(propertyVal)
-                     h.(name) = propertyVal{i};
+                     [h.(name)] = deal(propertyVal{i});
                   else
-                     h.(name) = propertyVal;
+                     [h.(name)] = deal(propertyVal);
                   end
                end
             end

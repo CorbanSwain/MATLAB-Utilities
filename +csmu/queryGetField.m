@@ -1,4 +1,3 @@
-function [val, S] = queryGetField(S, fieldName, default)
 %QUERYGETFIELD Gets a field or sets and gets a default value from a struct.
 %   [val, S] = QUERYGETFIELD(S, fieldName, default) takes in a struct S
 %   and either (A) returns the value stored in the struct under fieldName
@@ -63,6 +62,7 @@ function [val, S] = queryGetField(S, fieldName, default)
 %        
 %      end
 
+function [val, S] = queryGetField(S, fieldName, default)
 if ~isfield(S, fieldName)
     S.(fieldName) = default;
 end

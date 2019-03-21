@@ -27,6 +27,9 @@ classdef AxisConfiguration < csmu.DynamicShadow
             sizeCell = csmu.parseSizeArgs(varargin{:});
             % FIXME - need to handle empty arrays
             self(sizeCell{:}) = csmu.AxisConfiguration;
+            for iAc = 1:numel(self)
+               self(iAc) = csmu.AxisConfiguration;
+            end
          end
       end
       
@@ -91,7 +94,7 @@ classdef AxisConfiguration < csmu.DynamicShadow
             isYYProp = isYYPropFun(propName, propVal);
             if ~isempty(propVal) && ~any(strcmpi(propName, specialProps))
                if ~isYYProp
-                  if ~endsWith(propName, 'label', 'IgnoreCase', true)
+                  if ~any(strcmpi(propName, {'xlabel', 'ylabel', 'zlabel'}))
                      axisHandle.(propName) = propVal;
                   else
                      axisHandle.(propName).String = propVal;

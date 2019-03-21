@@ -8,7 +8,7 @@ classdef PlotBuilder < csmu.DynamicShadow & matlab.mixin.Heterogeneous
       PlotHandle
    end
    
-   methods           
+   methods                 
       function plot(self, axisHandle)
          self.plotGraphics(axisHandle);
       end            
