@@ -1,4 +1,4 @@
-%AFFINEWARP - Apply an affine transform to a 3D array.   
+%AFFINEWARP Apply an affine transform to a 3D array.   
 %This function uses an inverse transform algorithm to assign each point in
 %the output array to a point in the input array.
 %
@@ -37,7 +37,6 @@
 %              * type: affine3d, csmu.Transform
 %
 %      parameter/value pairs:
-%
 %         'OutputView' - a spatial reference object which specifies the extents 
 %                        of the output view in world coordinates. This will 
 %                        change how the transformed output is cropped.
