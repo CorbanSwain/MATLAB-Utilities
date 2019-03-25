@@ -210,21 +210,25 @@ if doIter
    L.debug('ChunkSize = %d pages', chunkSz / pgSz);
    chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
    nChunks = length(chunks);
-   filt = false(1, numelB);
-   P = zeros(numelB, 3, 'uint16');
-   Psel = 0;
+   
+   filt = cell(1, nChunks);
+   P = cell(1, nChunks);
+   chunkSels = cell(1, nChunks);
    startIdx = 0;
    for iChunk = 1:nChunks
+      chunkLen = chunks(iChunk);
+      chunkSels{iChunk} = (1:chunkLen) + startIdx;
+      startIdx = chunkSels{iChunk}(end);
+   end
+   
+   parfor iChunk = 1:nChunks
       L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
       tic;
-      chunkSel = (1:chunks(iChunk)) + startIdx;
-      [subP, subfilt] = awHelper(helperArgs{:}, chunkSel);
+      [subP, subfilt] = awHelper(helperArgs{:}, chunkSels{iChunk});
       L.debug('Placing chunk of filter');
-      filt(chunkSel) = subfilt;
+      filt{iChunk} = subfilt;
       L.debug('Placing chunk of A point selection');
-      Psel = Psel(end) + (1:size(subP, 1));
-      P(Psel, :) = subP;
-      startIdx = chunkSel(end);
+      P{iChunk} = subP;
       L.debug('\t... took %7.3f seconds', toc);
    end
    L.debug('Removing extra points in P.');
@@ -452,7 +456,7 @@ end
 t1 = toc(t1);
 L.info('Multi-large volume transform test passed in %.2f min.', ...
    (t1 - sum(psfTime)) / 60);
-L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+L.info('\t(total time: %.2f min; psfTime: [%s] s)\n.', t1 / 60, ...
    num2str(psfTime));
 
 t1 = tic;
@@ -468,7 +472,7 @@ for i = 1:2
 end
 t1 = toc(t1);
 L.info('Multi-repeat transforms took %.2f min.', (t1 - sum(psfTime)) / 60);
-L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+L.info('\t(total time: %.2f min; psfTime: [%s] s)\n.', t1 / 60, ...
    num2str(psfTime));
 L.info('Done.');
 L.logline(-1);
