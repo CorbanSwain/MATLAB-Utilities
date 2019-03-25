@@ -366,26 +366,45 @@ tforms = csmu.Transform(1, 2);
 [tforms.Translation] = deal([10, 3, 4]);
 tforms(2).DoReverse = true;
 
+L.info('Performing simulation on volume of size [%s].\n.', num2str(imSz));
+
+psfTime = zeros(1, 2);
+
 t1 = tic;
-for i = 1:2   
+for i = 1:2      
+   tP = tic;
+   [~] = PSF.H + 1;
+   [~] = PSF.Ht + 1;
+   psfTime(i) = toc(tP);
+   
    t2 = tic;
    [outputs{i}, outputRefs{i}, indexMaps{i, :}] = ...
       csmu.affinewarp(A{i}, RA, tforms(i));   
    L.info('Transform %d took %.2f min', i, toc(t2) / 60);
 end
-L.info('Multi-large volume transform test passed in %.2f min.\n.', ...
-   toc(t1) / 60);
-
+t1 = toc(t1);
+L.info('Multi-large volume transform test passed in %.2f min.', ...
+   (t1 - sum(psfTime)) / 60);
+L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+   num2str(psfTime));
 
 outputs = csmu.cellmap(@(r) zeros(r.ImageSize, imageClass), outputRefs);
 t1 = tic;
 for i = 1:2
-   t2 = tic;
+   tP = tic;
+   [~] = PSF.H + 1;
+   [~] = PSF.Ht + 1;
+   psfTime(i) = toc(tP);
+   
+   t2 = tic;   
    [P, filt] = indexMaps{i, :};
    outputs{i}(filt) = A{i}(P);
    L.info('Repeat transform %d took %.2f min.', i, toc(t2) / 60);
 end
-L.info('Multi-repeat transforms took %.2f min', toc(t1) / 60);
+t1 = toc(t1);
+L.info('Multi-repeat transforms took %.2f min.', (t1 - sum(psfTime)) / 60);
+L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+   num2str(psfTime));
 L.info('Done.');
 L.logline(-1);
 end
