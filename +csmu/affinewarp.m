@@ -325,7 +325,8 @@ L = csmu.Logger('csmu.affinewarp>utest');
 
 levelOld = L.windowLevel;
 cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
-L.globalWindowLevel(csmu.LogLevel.DEBUG);
+L.globalWindowLevel(csmu.LogLevel.INFO);
+L.logline(1);
 L.info('Performing unit tests.');
 
 %% Gridvec Test
@@ -335,7 +336,7 @@ sel = (105:315) + 400;
 P1 = gridvec(sz, 'Class', 'single');
 P2 = gridvec(sz, 'ChunkSel', sel, 'Class', 'single');
 L.assert(all(all(P1(sel, :) == P2)));
-L.info('Gridvec test passed in %f seconds.', toc(a));
+L.info('Gridvec test passed in %f seconds.\n.', toc(a));
 
 %% Case 1
 a = tic;
@@ -345,14 +346,46 @@ RA = csmu.centerImRef(sz);
 tform = affine3d;
 B = csmu.affinewarp(A, RA, tform);
 L.assert(all(A(:) == B(:)));
-L.info('Identity transform test passed in %f seconds.', toc(a));
+L.info('Identity transform test passed in %f seconds.\n.', toc(a));
 
 %% Case 2
-a = tic;
-sz = round([1200 975 975] * 1);
-A = rand(sz, 'single');
-RA = csmu.centerImRef(sz);
-tform = csmu.df2tform([88 0 1], [10 0 5]);
-[B, RB, P, filt] = csmu.affinewarp(A, RA, tform);
-L.info('Large volume transform test passed in %f seconds.', toc(a));
+PSF = getPsf;
+
+indexMaps = cell(2, 2);
+outputRefs = cell(1, 2);
+outputs = cell(1, 2);
+imageClass = 'single';
+
+imSz = round([1200 1000 1000] * 1);
+RA = csmu.centerImRef(imSz);
+A = cell(1, 2);
+A = csmu.cellmap(@(~) rand(imSz, imageClass), A);
+
+tforms = csmu.Transform(1, 2);
+[tforms.Rotation] = deal([88.5, 0, 2]);
+[tforms.Translation] = deal([10, 3, 4]);
+tforms(2).DoReverse = true;
+
+t1 = tic;
+for i = 1:2   
+   t2 = tic;
+   [outputs{i}, outputRefs{i}, indexMaps{i, :}] = ...
+      csmu.affinewarp(A{i}, RA, tforms(i));   
+   L.info('Transform %d took %.2f min', i, toc(t2) / 60);
+end
+L.info('Multi-large volume transform test passed in %.2f min.\n.', ...
+   toc(t1) / 60);
+
+
+outputs = csmu.cellmap(@(r) zeros(r.ImageSize, imageClass), outputRefs);
+t1 = tic;
+for i = 1:2
+   t2 = tic;
+   [P, filt] = indexMaps{i, :};
+   outputs{i}(filt) = A{i}(P);
+   L.info('Repeat transform %d took %.2f min.', i, toc(t2) / 60);
+end
+L.info('Multi-repeat transforms took %.2f min', toc(t1) / 60);
+L.info('Done.');
+L.logline(-1);
 end
