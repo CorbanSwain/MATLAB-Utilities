@@ -101,6 +101,7 @@ indexMap = ip.Results.IndexMap;
 if ~isempty(indexMap)
    [P, bSize, filt] = indexMap{:};
    B = zeros(bSize, 'like', A);
+   % Hardcoding sub2indFast here for speed
    B(filt) = A(sub2indFast(size(A), P));
    varargout = {B};
    return
@@ -188,7 +189,7 @@ if numelB > minChunkSz
    L.debug('Avalible Memory: %.1f GB', avalailableMem / 1E9);
    heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
-   threshChunkSz = chunkSz * 5;
+   threshChunkSz = chunkSz * 4;
    L.debug('Threshold chunk size = %.5e', threshChunkSz);
    doIter = numelB > threshChunkSz;
 else
@@ -201,7 +202,7 @@ T = affine3d(T1 * T2 * T3 * T4 * T5 * T6 * T7);
 helperArgs = {RA, RB, T, T8, VARCLASS};
 if doIter
    L.debug(['Volume is too large to warp in one-pass,', ...
-      ' performing chunked computation']);
+      ' performing chunked computation.']);
    pgSz = prod(RB.ImageSize(1:2));
    % round to multiple of the volumes pagesize to speed up gridvec
    chunkSz = round(chunkSz / pgSz) * pgSz;
@@ -221,7 +222,7 @@ if doIter
       L.debug('Placing chunk of filter');
       filt(chunkSel) = subfilt;
       L.debug('Placing chunk of A point selection');
-      Psel = Psel(end) + 1:length(subP);
+      Psel = Psel(end) + (1:size(subP, 1));
       P(Psel, :) = subP;
       startIdx = chunkSel(end);
       L.debug('\t... took %7.3f seconds', toc);
@@ -279,11 +280,25 @@ P = P(filt, :);
 end
 
 function ind = sub2indFast(sz, points)
+%SUB2INDFAST only supports NX3 point arrays
+%
+% See also SUB2IND.
+
+% more elegant matrix method
+% cpSz = cumprod(sz);
+% sub2indTform = [1, cpSz(1:(end-1))];
+% sub2indShift = 1 - sum(sub2indTform);
+% idxClass = 'double';
+% ind = (cast(points, idxClass) * sub2indTform') + sub2indShift;
+
+% Removing logging and assertion for speed
+% L = csmu.Logger(['csmu', mfilename '>sub2indFast']);
+% L.assert(length(sz) == 3);
+
 cpSz = cumprod(sz);
-sub2indTform = [1, cpSz(1:(end-1))];
-sub2indShift = 1 - sum(sub2indTform);
-idxClass = 'double';
-ind = (cast(points, idxClass) * sub2indTform') + sub2indShift;
+ind = double(points(:, 1)) ...
+   + (cpSz(1) * double(points(:, 2) - 1)) ...
+   + (cpSz(2) * double(points(:, 3) - 1));
 end
 
 function P = corners(sz, varargin)
@@ -364,7 +379,8 @@ L = csmu.Logger('csmu.affinewarp>utest');
 
 levelOld = L.windowLevel;
 cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
-L.globalWindowLevel(csmu.LogLevel.DEBUG);
+L.globalWindowLevel(csmu.LogLevel.INFO);
+L.logline(1);
 L.info('Performing unit tests.');
 
 %% Gridvec Test
@@ -374,21 +390,17 @@ sel = (105:315) + 400;
 P1 = gridvec(sz, 'Class', 'single');
 P2 = gridvec(sz, 'ChunkSel', sel, 'Class', 'single');
 L.assert(all(all(P1(sel, :) == P2)));
-L.info('Gridvec test passed in %f seconds.', toc(a));
-
+L.info('Gridvec test passed in %f seconds.\n.', toc(a));
 
 %% sub2ind Test
-P = uint16(randi(200, 20000000, 3));
+P = uint16(randi(200, 200000000, 3));
 aSz = ones(1, 3) * 201;
 t1 = tic;
-P1 = mat2cell(P, size(P, 1), [1 1 1]);
-t2 = tic;
-ind2 = sub2ind(aSz, P1{:});
-L.info('sub2ind took %.3f s [total], %.3f s [sub2ind alone]', toc(t1), ...
-   toc(t2));
+ind2 = sub2ind(aSz, P(:, 1), P(:, 2), P(:, 3));
+L.info('sub2ind took     %8.3f s.', toc(t1));
 t1 = tic;
 ind1 = sub2indFast(aSz, P);
-L.info('sub2indFast took %.3f seconds', toc(t1));
+L.info('sub2indFast took %8.3f s.\n.', toc(t1));
 assert(all(ind1 == ind2));
 L.info('sub2indFast test passed.');
 clear('P', 'P1', 'ind1', 'ind2');
@@ -401,17 +413,63 @@ RA = csmu.centerImRef(sz);
 tform = affine3d;
 B = csmu.affinewarp(A, RA, tform);
 L.assert(all(A(:) == B(:)));
-L.info('Identity transform test passed in %f seconds.', toc(a));
+L.info('Identity transform test passed in %f seconds.\n.', toc(a));
 
-%% Case 2
-a = tic;
-sz = round([1200 975 975] * 1);
-A = rand(sz, 'single');
-RA = csmu.centerImRef(sz);
-tform = csmu.df2tform([88 0 1], [10 0 5]);
-[~, ~, idxMap] = csmu.affinewarp(A, RA, tform);
-L.info('Large volume transform test passed in %.1f seconds.', toc(a));
-a = tic;
-csmu.affinewarp(A, 'IndexMap', idxMap);
-L.info('Repeated transform took %.1f seconds', toc(a));
+%% Case 2 - Dual Axis Light Field Warp Simulation
+PSF = getPsf;
+
+indexMaps = cell(1, 2);
+outputRefs = cell(1, 2);
+outputs = cell(1, 2);
+imageClass = 'single';
+
+imSz = round([1200 1000 1000] * 1);
+RA = csmu.centerImRef(imSz);
+A = cell(1, 2);
+A = csmu.cellmap(@(~) rand(imSz, imageClass), A);
+
+tforms = csmu.Transform(1, 2);
+[tforms.Rotation] = deal([88.5, 0, 2]);
+[tforms.Translation] = deal([10, 3, 4]);
+tforms(2).DoReverse = true;
+
+L.info('Performing simulation on volume of size [%s].\n.', num2str(imSz));
+
+psfTime = zeros(1, 2);
+
+t1 = tic;
+for i = 1:2      
+   tP = tic;
+   [~] = PSF.H + 1;
+   [~] = PSF.Ht + 1;
+   psfTime(i) = toc(tP);
+   
+   t2 = tic;
+   [outputs{i}, outputRefs{i}, indexMaps{i}] = ...
+      csmu.affinewarp(A{i}, RA, tforms(i));   
+   L.info('Transform %d took %.2f min', i, toc(t2) / 60);
+end
+t1 = toc(t1);
+L.info('Multi-large volume transform test passed in %.2f min.', ...
+   (t1 - sum(psfTime)) / 60);
+L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+   num2str(psfTime));
+
+t1 = tic;
+for i = 1:2
+   tP = tic;
+   [~] = PSF.H + 1;
+   [~] = PSF.Ht + 1;
+   psfTime(i) = toc(tP);
+   
+   t2 = tic;   
+   outputs{i}= csmu.affinewarp(A{i}, 'IndexMap', indexMaps{i});
+   L.info('Repeat transform %d took %.2f min.', i, toc(t2) / 60);
+end
+t1 = toc(t1);
+L.info('Multi-repeat transforms took %.2f min.', (t1 - sum(psfTime)) / 60);
+L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+   num2str(psfTime));
+L.info('Done.');
+L.logline(-1);
 end
