@@ -101,7 +101,6 @@ indexMap = ip.Results.IndexMap;
 if ~isempty(indexMap)
    [P, bSize, filt] = indexMap{:};
    B = zeros(bSize, 'like', A);
-   % Hardcoding sub2indFast here for speed
    B(filt) = A(sub2indFast(size(A), P));
    varargout = {B};
    return
@@ -111,13 +110,13 @@ L.assert(all(size(A) == RA.ImageSize));
 nargoutchk(0, 3);
 
 %% Setup
-L.debug('Setting up transform matrices');
+L.trace('Setting up transform matrices');
 if isfloat(A)
    VARCLASS = class(A);
 else
    VARCLASS = 'double';
 end
-L.debug('VARCLASS = %s', VARCLASS);
+L.trace('VARCLASS = %s', VARCLASS);
 
 I = eye(4);
 shiftsel = {4, 1:3};
@@ -176,8 +175,8 @@ T8 = [RA.ImageSize(1); 1; prod(RA.ImageSize(1:2))];
 T8Shift = 1 - sum(T8);
 T8 = [T8; T8Shift];
 
-L.debug('Input image size [%s]', num2str(RA.ImageSize))
-L.debug('Output image size [%s]', num2str(RB.ImageSize))
+L.trace('Input image size [%s]', num2str(RA.ImageSize))
+L.trace('Output image size [%s]', num2str(RB.ImageSize))
 
 %% Performing Warp Computation
 numelB = prod(RB.ImageSize);
@@ -189,7 +188,7 @@ if numelB > minChunkSz
    L.debug('Avalible Memory: %.1f GB', avalailableMem / 1E9);
    heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
-   threshChunkSz = chunkSz * 4;
+   threshChunkSz = chunkSz * 4; % was 4
    L.debug('Threshold chunk size = %.5e', threshChunkSz);
    doIter = numelB > threshChunkSz;
 else
@@ -201,17 +200,20 @@ end
 T = affine3d(T1 * T2 * T3 * T4 * T5 * T6 * T7);
 helperArgs = {RA, RB, T, T8, VARCLASS};
 if doIter
-   L.debug(['Volume is too large to warp in one-pass,', ...
+   L.trace(['Volume is too large to warp in one-pass,', ...
       ' performing chunked computation.']);
    pgSz = prod(RB.ImageSize(1:2));
    % round to multiple of the volumes pagesize to speed up gridvec
-   chunkSz = round(chunkSz / pgSz) * pgSz;
+   pool = gcp;
+   heuristic = 0.5;
+   chunkSz = numelB / (pool.NumWorkers * heuristic);
+   chunkSz = round(chunkSz / pgSz) * pgSz;   
    %chunkSz = 100 * pgSz;
-   L.debug('ChunkSize = %d pages', chunkSz / pgSz);
    chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
    nChunks = length(chunks);
+   L.debug('ChunkSize = %d pages, Num Chunks = %d', chunkSz / pgSz, nChunks);
    
-   filt = cell(1, nChunks);
+   filtCell = cell(1, nChunks);
    P = cell(1, nChunks);
    chunkSels = cell(1, nChunks);
    startIdx = 0;
@@ -221,35 +223,46 @@ if doIter
       startIdx = chunkSels{iChunk}(end);
    end
    
+   t1 = tic;
    parfor iChunk = 1:nChunks
-      L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
+      L.trace('Beginnging chunk %2d / %2d', iChunk, nChunks);
       tic;
       [subP, subfilt] = awHelper(helperArgs{:}, chunkSels{iChunk});
-      L.debug('Placing chunk of filter');
-      filt{iChunk} = subfilt;
-      L.debug('Placing chunk of A point selection');
+      L.trace('Placing chunk of filter');
+      filtCell{iChunk} = subfilt;
+      L.trace('Placing chunk of A point selection');
       P{iChunk} = subP;
-      L.debug('\t... took %7.3f seconds', toc);
-   end
-   L.debug('Removing extra points in P.');
-   P = P(1:Psel(end));
+      L.trace('\t... took %7.3f seconds', toc);
+   end   
+   t1 = toc(t1);
+   L.debug('Total Warp Time = %.2f s; SCORE = %6d', t1, ...
+      round(t1 / numelB * 2e9));
+   
+   L.trace('Concatenating PCell');
+   P = cat(1, P{:});
+   L.trace('Concatenating filtCell');
+   filt = cat(1, filtCell{:});
 else
    L.debug('Performing computation in one pass');
    chunkSel = 1:prod(RB.ImageSize);
+   t1 = tic;
    [P, filt] = awHelper(helperArgs{:}, chunkSel);
+   t1 = toc(t1);
+   L.debug('Total Warp Time = %.2f s; SCORE = %6d', t1, ...
+      round(t1 / numelB * 2e9));
 end
 
-tic;
-L.debug('Reordering P');
+t1 = tic;
+L.trace('Reordering P');
 P = P(:, [2 1 3]);
-L.debug('Allocating output volume');
+L.trace('Allocating output volume');
 B = zeros(RB.ImageSize, VARCLASS);
-L.debug('Placing points into output output space.');
+L.trace('Placing points into output space.');
 B(filt) = A(sub2indFast(size(A), P));
-L.debug('Placing points took %.3f seconds', toc);
+L.debug('Placing points took %.3f seconds', toc(t1));
 
 %% Place in Space
-L.debug('Returning output');
+L.trace('Returning output');
 switch nargout
    case 1
       varargout = {B};
@@ -263,20 +276,20 @@ end
 function [P, filt] = awHelper(RA, RB, T, T8, VARCLASS, chunkSel)
 L = csmu.Logger('csmu.affinewarp>awHelper');
 
-L.debug('Creating point vectors');
+L.trace('Creating point vectors');
 P = [gridvec(RB.ImageSize, 'ChunkSel', chunkSel, 'Class', VARCLASS), ...
    ones(length(chunkSel), 1, VARCLASS)];
 
 TDimReduce = [eye(3); 0 0 0];
 
 %% Inverse Transform
-L.debug('Performing inverse transformation');
+L.trace('Performing inverse transformation');
 P = uint16(P * (T.invert.T * TDimReduce));
 
 %% Filter out Invalid Points
-L.debug('Building filter');
+L.trace('Building filter');
 filt = all(P >= 1, 2) & all(P <= RA.ImageSize([2 1 3]), 2);
-L.debug('Filtering out invalid points');
+L.trace('Filtering out invalid points');
 P = P(filt, :);
 
 % L.debug('Converting to double then mat-multiplying to get indices');
@@ -343,7 +356,7 @@ chunkSel = p.Results.ChunkSel;
 VARCLASS = p.Results.Class;
 
 if isempty(chunkSel)
-   L.debug('Calulating grid vectors for all points');
+   L.trace('Calulating grid vectors for all points');
    %%% hardcoding for speed
    a = ones(1, 3, VARCLASS);
    b = cast(sz([2 1 3]), VARCLASS);
@@ -359,7 +372,7 @@ if isempty(chunkSel)
    % [P{[2 1 3]}] = ndgrid(P{:});
    % P = reshape(cat(nd + 1, P{:}), [], nd);
 else
-   L.debug('Calculating grid vectors for a chunk of points.');
+   L.trace('Calculating grid vectors for a chunk of points.');
    Plim = cell(3, 1);
    [Plim{:}] = ind2sub(sz, chunkSel([1, end]));
    Plim = cell2mat(Plim);
@@ -383,7 +396,7 @@ L = csmu.Logger('csmu.affinewarp>utest');
 
 levelOld = L.windowLevel;
 cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
-L.globalWindowLevel(csmu.LogLevel.INFO);
+L.globalWindowLevel(csmu.LogLevel.DEBUG);
 L.logline(1);
 L.info('Performing unit tests.');
 
