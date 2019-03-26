@@ -1,34 +1,42 @@
-%AFFINEWARP Apply an affine transform to a 3D array.   
+%AFFINEWARP Apply an affine transform to a 3D array.
 %This function uses an inverse transform algorithm to assign each point in
 %the output array to a point in the input array.
 %
 %   Syntax:
 %   -------
-%   B = AFFINEWARP(A, RA, tform) transforms the `A` according to `tform` and 
+%   B = AFFINEWARP(A, RA, tform) transforms the `A` according to `tform` and
 %   returns the result as `B`.
 %
-%   B = AFFINEWARP(..., 'OutputView', RB) ensures the ouput is limited to the
-%   space defined by `RB`.
+%   B = AFFINEWARP(A, RA, tform, param1, val1, param2, val2, ...) will pass
+%   parameters to alter the operation of AFFINEWARP. See the Inputs section for
+%   more information.
 %
-%   [B, RB] = AFFINEWARP(...) returns the spacial reference which the output
-%   covers.
+%   [B, RB] = AFFINEWARP(A, RA, tform, ...) returns the spacial reference
+%   which the output covers.
 %
-%   [B, RB, P, filt] = AFFINEWARP(...) returns `P` and `filt` which can be used
-%   to specify the operation performed by AFFINEWARP as a series of index
-%   assignments such that `B = zeros(RB.ImageSize); B(filt) = A(P)` repeats 
-%   the transformation. These outputs can be useful for speeding up repeated
-%   transformations on different input arrays of the same size.
+%   [B, RB, indexMap] = AFFINEWARP(A, RA, tform, ...) returns the cell array
+%   `indexMap` which can be used to specify the operation performed by
+%   AFFINEWARP as a series of index assignments such that
+%   `B = AFFINEWARP(A, 'IndexMap', indexMap)` repeats the transformation. This
+%   output can be useful for speeding up processing if the same transformation
+%   needs to be repeatedly applied.
+%
+%   B = AFFINEWARP(A, 'IndexMap', indexMap) applies the transform specified
+%   by `indexMap` as returned in a previous call to affine transform
+%   with the tform argument specified. If the 'IndexMap' parameter is
+%   supplied, `RA`, `tform` and any other parameter/value pairs should NOT be
+%   supplied.
 %
 %   AFFINEWARP() called with no arguments will perform a unit test suite on the
-%   affinewarp function, and print profiling and debugging results to the 
+%   affinewarp function, and print profiling and debugging results to the
 %   console.
 %
 %   Inputs:
 %   -------
-%      A - a numeric array to be transformed. 
+%      A - a numeric array to be transformed.
 %          * `ndims(A)` must equal 3.
 %
-%      RA - a spatial reference object which specifies the extents of A in 
+%      RA - a spatial reference object which specifies the extents of A in
 %           world coordinates.
 %           * type: imfef3d, csmu.ImageRef
 %           * `RA.ImageSize` must equal `size(A)`
@@ -37,51 +45,95 @@
 %              * type: affine3d, csmu.Transform
 %
 %      parameter/value pairs:
-%         'OutputView' - a spatial reference object which specifies the extents 
-%                        of the output view in world coordinates. This will 
+%         'OutputView' - a spatial reference object which specifies the extents
+%                        of the output view in world coordinates. This will
 %                        change how the transformed output is cropped.
 %                        * type: imref3d, csmu.ImageRef
+%
+%         'DoParallel' - (default is true) if set to true, AFFINEWARP will
+%                        attempt to use parallel computation to speed up
+%                        the warping process. If set to false, all
+%                        computations will be performed in series.
+%
+%         'IndexMap' - a cell array containing a subscript array and a binary
+%                      index vector (as described in the Outputs section)
+%                      returned from a prior call to AFFINEWARP. This
+%                      parameter should not be supplied with any other
+%                      parameters
 %
 %   Outputs:
 %   --------
 %      B - the transformation of the input array
-%      
+%
 %      RB - the spatial ref of the output array referenced to the input
 %           coordinate system supplied by RA. If the 'OutputView'
-%           parameter/value pair argument is specified, RB will be the same as
-%           that value.
+%           parameter is specified, RB will be the same as that value.
 %           * type: imref3d, csmu.ImageRef
 %
-%      P - the list of indices in the input volume to be assiged to a
-%          subset of the output volume. `P` and `filt` are provided such that 
-%          `B(filt) = A(P)` is equivalent to performing the transform.
+%      indexMap - the specification for the transformation using indices as a
+%                 cell array with elements:
+%                 1. the a subscript array for the input volume specifying
+%                    points to be assiged to a subset of the output volume.
+%                 2. the size of `B` as a vector
+%                 3. the points in the output space `B` which should be set to
+%                    points from the input `A` specified as a binary index
+%                    vector.
+%                 `indexMap` is provided such that
+%                 `B = AFFINEWARP(A, 'IndexMap', indexMap)` is equivalent to
+%                 performing the transform.
 %
-%      filt - the points in the output space `B` which should be set to 
-%             points from the input `A` specified as a binary array. `P` 
-%             and `filt` are provided such that  `B(filt) = A(P)` is 
-%             equivalent to performing the transform.
-%
-%   See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP, 
+%   See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP,
 %   IMREGTFORM, GEOMETRICTRANSFORM3D.
-  
-function [varargout] = affinewarp(A, RA, tform, varargin)
+
+% Corban Swain, 2019
+
+function [varargout] = affinewarp(A, varargin)
 %% Input Handling
-L = csmu.Logger('csmu.affinewarp');
 if nargin == 0
    unittest;
    return
 end
-RB = parseInputs(varargin);
-L.assert(all(size(A) == RA.ImageSize));
-L.assert(any(nargout == [0 1 2 4]));
+
+ip = inputParser;
+ip.addOptional('RA', [], ...
+   @(x) any(strcmpi(class(x), {'csmu.ImageRef', 'imref3d'})));
+ip.addOptional('Tform', [], ...
+   @(x) any(strcmpi(class(x), {'csmu.Transform', 'affine3d'})));
+ip.addParameter('OutputView', []);
+ip.addParameter('IndexMap', []);
+ip.addParameter('DoParallel', true);
+ip.parse(varargin{:});
+
+indexMap = ip.Results.IndexMap;
+if ~isempty(indexMap)
+   [P, bSize, filt] = indexMap{:};
+   B = zeros(bSize, 'like', A);
+   B(filt) = A(P);
+   varargout = {B};
+   return
+end
+
+RA = ip.Results.RA;
+tform = ip.Results.Tform;
+RB = ip.Results.OutputView;
+doParallel = ip.Results.DoParallel;
+
 %% Setup
-L.debug('Setting up transform matrices');
+%%% Logging
+L = csmu.Logger('csmu.affinewarp');
+
+%%% Validation
+L.assert(all(size(A) == RA.ImageSize));
+nargoutchk(0, 3);
+
+%%% Transform matrices
+L.trace('Setting up transform matrices');
 if isfloat(A)
    VARCLASS = class(A);
 else
    VARCLASS = 'double';
 end
-L.debug('VARCLASS = %s', VARCLASS);
+L.trace('VARCLASS = %s', VARCLASS);
 
 I = eye(4);
 shiftsel = {4, 1:3};
@@ -135,13 +187,11 @@ T6(scalesel{:}) = 1 ./ [RB.PixelExtentInWorldX, ...
 T7 = I;
 T7(shiftsel{:}) = ones(1, 3);
 
-% 8 - convert from subscript to an index into A
-T8 = [RA.ImageSize(1); 1; prod(RA.ImageSize(1:2))];
-T8Shift = 1 - sum(T8);
-T8 = [T8; T8Shift];
+% 8 - dimensionality reduction
+T8 = [eye(3); 0 0 0];
 
-L.debug('Input image size [%s]', num2str(RA.ImageSize))
-L.debug('Output image size [%s]', num2str(RB.ImageSize))
+L.trace('Input image size [%s]', num2str(RA.ImageSize))
+L.trace('Output image size [%s]', num2str(RB.ImageSize))
 
 %% Performing Warp Computation
 numelB = prod(RB.ImageSize);
@@ -153,7 +203,7 @@ if numelB > minChunkSz
    L.debug('Avalible Memory: %.1f GB', avalailableMem / 1E9);
    heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
-   threshChunkSz = chunkSz * 5;
+   threshChunkSz = chunkSz * 4; % was 4
    L.debug('Threshold chunk size = %.5e', threshChunkSz);
    doIter = numelB > threshChunkSz;
 else
@@ -165,92 +215,150 @@ end
 T = affine3d(T1 * T2 * T3 * T4 * T5 * T6 * T7);
 helperArgs = {RA, RB, T, T8, VARCLASS};
 if doIter
-   L.debug(['Volume is too large to warp in one-pass,', ...
-      ' performing chunked computation']);
+   L.trace(['Volume is too large to warp in one-pass,', ...
+      ' performing chunked computation.']);
    pgSz = prod(RB.ImageSize(1:2));
-   % round to multiple of the volumes pagesize to speed up gridvec
-   chunkSz = round(chunkSz / pgSz) * pgSz;
-   %chunkSz = 100 * pgSz;
-   L.debug('ChunkSize = %d pages', chunkSz / pgSz);
-   chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
-   nChunks = length(chunks);
-   t1 = tic;
-   filt = false(1, numelB);
-   P = zeros(1, numelB);
-   Psel = [0, 0];
-   startIdx = 0;   
-   for iChunk = 1:nChunks
-      L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
-      tic;
-      chunkSel = (1:chunks(iChunk)) + startIdx;
-      [subP, subfilt] = awHelper(helperArgs{:}, chunkSel);
-      L.debug('Placing chunk of filter');
-      filt(chunkSel) = subfilt;
-      L.debug('Placing chunk of A point selection');
-      Psel = [Psel(2) + 1, Psel(2) + length(subP)];
-      P(Psel(1):Psel(2)) = subP;
-      startIdx = chunkSel(end);
-      L.debug('\t... took %7.3f seconds', toc);
+
+   if doParallel
+      L.debug('Performing parallel chunked computation.');
+      pool = gcp('nocreate');
+      if isempty(pool)
+         pool = parpool;
+      end
+
+      heuristic = 1;
+      chunkSz = numelB / (pool.NumWorkers * heuristic);
+      % round to multiple of the volumes pagesize to speed up gridvec
+      chunkSz = round(chunkSz / pgSz) * pgSz;
+      chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
+      nChunks = length(chunks);
+      L.debug('ChunkSize = %d pages, Num Chunks = %d', chunkSz / pgSz, nChunks);
+
+      filtCell = cell(1, nChunks);
+      PCell = cell(1, nChunks);
+      chunkSels = cell(1, nChunks);
+      startIdx = 0;
+      for iChunk = 1:nChunks
+         chunkLen = chunks(iChunk);
+         chunkSels{iChunk} = (1:chunkLen) + startIdx;
+         startIdx = chunkSels{iChunk}(end);
+      end
+
+      t1 = tic;
+      fullT = T.invert.T * T8;
+      sizeCondition = RA.ImageSize([2 1 3]);
+      bSize = RB.ImageSize;
+      parfor iChunk = 1:nChunks
+         % [PCell{iChunk}, filtCell{iChunk}] ...
+         %    = awHelper(helperArgs{:}, chunkSels{iChunk});
+
+         % hardcoding for speed
+         PCell{iChunk} = [gridvec(bSize, 'Class', VARCLASS, ...
+            'ChunkSel', chunkSels{iChunk}), ones(chunks(iChunk), 1, VARCLASS)];
+         PCell{iChunk} = uint16(PCell{iChunk} * fullT);
+         filtCell{iChunk} = all(PCell{iChunk} >= 1, 2) ...
+            & all(PCell{iChunk} <= sizeCondition, 2);
+         PCell{iChunk} = PCell{iChunk}(filtCell{iChunk}, :);
+      end
+
+      L.trace('Concatenating P');
+      P = cat(1, PCell{:});
+      L.trace('Concatenating filtCell');
+      % filt = false(numelB, 1);
+      filt = cat(1, filtCell{:});
+      t1 = toc(t1);
+      L.debug('Total Warp Time = %.2f s; SCORE = %6d', t1, ...
+         round(t1 / numelB * 2e9));
+   else
+      L.debug('Performing series chunked computation.');
+      % round to multiple of the volumes pagesize to speed up gridvec
+      chunkSz = round(chunkSz / pgSz) * pgSz;
+      chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
+      nChunks = length(chunks);
+      L.debug('ChunkSize = %d pages, Num Chunks = %d', chunkSz / pgSz, ...
+         nChunks);
+
+      filt = false(1, numelB);
+      P = zeros(numelB, 3, 'uint16');
+      Psel = 0;
+      startIdx = 0;
+      t1 = tic;
+      for iChunk = 1:nChunks
+         L.trace('Beginnging chunk %2d / %2d', iChunk, nChunks);
+         tic;
+         chunkSel = (1:chunks(iChunk)) + startIdx;
+         [subP, subfilt] = awHelper(helperArgs{:}, chunkSel);
+         L.trace('Placing chunk of filter');
+         filt(chunkSel) = subfilt;
+         L.trace('Placing chunk of A point selection');
+         Psel = Psel(end) + (1:size(subP, 1));
+         P(Psel, :) = subP;
+         startIdx = chunkSel(end);
+         L.trace('\t... took %7.3f seconds', toc);
+      end
+      L.trace('Removing extra points in P.');
+      P = P(1:Psel(end), 1:3);
+      t1 = toc(t1);
+      L.debug('Total Warp Time = %.2f s; SCORE = %6d', t1, ...
+         round(t1 / numelB * 2e9));
    end
-   L.debug('Removing extra points in P.');
-   P = P(1:Psel(2));
-   t1 = toc(t1);
-   L.debug('Warp Time = %.2f, SCORE = %2d', t1, round(t1 / numelB * 2e9));
 else
-   L.debug('Performing computation in one pass');
-   t1 = tic;
+   L.debug('Performing warp computation in one pass.');
    chunkSel = 1:prod(RB.ImageSize);
+   t1 = tic;
    [P, filt] = awHelper(helperArgs{:}, chunkSel);
    t1 = toc(t1);
-   L.debug('Warp Time = %.2f, SCORE = %2d', t1, round(t1 / numelB * 2e9));
+   L.debug('Total Warp Time = %.2f s; SCORE = %6d', t1, ...
+      round(t1 / numelB * 2e9));
 end
 
-tic;
-L.debug('Allocating output volume');
+t1 = tic;
+L.trace('Reordering P');
+P = P(:, [2 1 3]);
+L.trace('Allocating output volume');
 B = zeros(RB.ImageSize, VARCLASS);
-L.debug('Placing points into output output space.');
+L.trace('Converting to indices.');
+t2 = tic;
+P = sub2indFast(size(A), P);
+L.debug('Converting to indices took %.2f s.', toc(t2))
+L.trace('Placing points into output space.');
 B(filt) = A(P);
-L.debug('Placing points took %.3f seconds', toc);
+L.debug('Placing points took %.2f s.', toc(t1));
 
 %% Place in Space
-L.debug('Returning output');
+L.trace('Returning output');
 switch nargout
    case 1
       varargout = {B};
    case 2
       varargout = {B, RB};
-   case 4
-      varargout = {B, RB, P, filt};
+   case 3
+      varargout = {B, RB, {P, RB.ImageSize, filt}};
 end
 end
 
 function [P, filt] = awHelper(RA, RB, T, T8, VARCLASS, chunkSel)
-L = csmu.Logger('csmu.affinewarp>awHelper');
-
-L.debug('Creating point vectors');
-% TODO - time this with padarray
+% L = csmu.Logger('csmu.affinewarp>awHelper');
+% L.trace('Creating point vectors');
 P = [gridvec(RB.ImageSize, 'ChunkSel', chunkSel, 'Class', VARCLASS), ...
    ones(length(chunkSel), 1, VARCLASS)];
 
-%% Inverse Transform
-L.debug('Performing inverse transformation');
-P = round(P * T.invert.T);
+%%% Inverse Transform
+% L.trace('Performing inverse transformation');
+P = uint16(P * (T.invert.T * T8));
 
-%% Filter out Invalid Points
-L.debug('Building filter');
-filt = all(P >= 1, 2) & all(P <= [RA.ImageSize([2 1 3]), 1], 2);
-L.debug('Filtering out invalid points');
+%%% Filter out Invalid Points
+% L.trace('Building filter');
+filt = all(P >= 1, 2) & all(P <= RA.ImageSize([2 1 3]), 2);
+% L.trace('Filtering out invalid points');
 P = P(filt, :);
-
-L.debug('Converting to double then mat-multiplying to get indices');
-P = double(P) * T8; % must convert to double because of indices > 1e9
 end
 
-function RB = parseInputs(args)
-p = inputParser;
-p.addParameter('OutputView', []);
-p.parse(args{:});
-RB = p.Results.OutputView;
+function ind = sub2indFast(sz, points)
+cpSz = cumprod(sz);
+ind = double(points(:, 1)) ...
+   + (cpSz(1) * double(points(:, 2) - 1)) ...
+   + (cpSz(2) * double(points(:, 3) - 1));
 end
 
 function P = corners(sz, varargin)
@@ -281,8 +389,8 @@ P = [reshape(repmat(v{1}, sz{[1 4 3]}), [], 1), ... % sz{4} represents 1
 end
 
 function P = gridvec(sz, varargin)
-L = csmu.Logger('csmu.affinewarp>gridvec');
-L.assert(isvector(sz), 'sz must be a vector.');
+% L = csmu.Logger('csmu.affinewarp>gridvec');
+% L.assert(isvector(sz), 'sz must be a vector.');
 p = inputParser;
 p.addParameter('ChunkSel', [], @(x) isvector(x) & all(x > 0));
 p.addParameter('Class', 'double', @(x) ischar(x) & isvector(x));
@@ -291,12 +399,12 @@ chunkSel = p.Results.ChunkSel;
 VARCLASS = p.Results.Class;
 
 if isempty(chunkSel)
-   L.debug('Calulating grid vectors for all points');
+   % L.trace('Calulating grid vectors for all points');
    %%% hardcoding for speed
    a = ones(1, 3, VARCLASS);
    b = cast(sz([2 1 3]), VARCLASS);
    P = vecs2points(makevecs(a, b, sz));
-   
+
    %%% more elegant method
    % ne = prod(sz);
    % nd = length(sz);
@@ -307,7 +415,7 @@ if isempty(chunkSel)
    % [P{[2 1 3]}] = ndgrid(P{:});
    % P = reshape(cat(nd + 1, P{:}), [], nd);
 else
-   L.debug('Calculating grid vectors for a chunk of points.');
+   % L.trace('Calculating grid vectors for a chunk of points.');
    Plim = cell(3, 1);
    [Plim{:}] = ind2sub(sz, chunkSel([1, end]));
    Plim = cell2mat(Plim);
@@ -344,6 +452,19 @@ P2 = gridvec(sz, 'ChunkSel', sel, 'Class', 'single');
 L.assert(all(all(P1(sel, :) == P2)));
 L.info('Gridvec test passed in %f seconds.\n.', toc(a));
 
+%% sub2ind Test
+P = uint16(randi(200, 200000000, 3));
+aSz = ones(1, 3) * 201;
+t1 = tic;
+ind2 = sub2ind(aSz, P(:, 1), P(:, 2), P(:, 3));
+L.info('sub2ind took     %8.3f s.', toc(t1));
+t1 = tic;
+ind1 = sub2indFast(aSz, P);
+L.info('sub2indFast took %8.3f s.', toc(t1));
+assert(all(ind1 == ind2));
+L.info('sub2indFast test passed.\n.');
+clear('P', 'P1', 'ind1', 'ind2');
+
 %% Case 1
 a = tic;
 sz = [10 11 12];
@@ -354,13 +475,14 @@ B = csmu.affinewarp(A, RA, tform);
 L.assert(all(A(:) == B(:)));
 L.info('Identity transform test passed in %f seconds.\n.', toc(a));
 
-%% Case 2
+%% Case 2 - Dual Axis Light Field Warp Simulation
 PSF = getPsf;
 
-indexMaps = cell(2, 2);
+indexMaps = cell(1, 2);
 outputRefs = cell(1, 2);
 outputs = cell(1, 2);
 imageClass = 'single';
+args = {'DoParallel', true};
 
 imSz = round([1200 1000 1000] * 1);
 RA = csmu.centerImRef(imSz);
@@ -377,39 +499,37 @@ L.info('Performing simulation on volume of size [%s].\n.', num2str(imSz));
 psfTime = zeros(1, 2);
 
 t1 = tic;
-for i = 1:2      
-   tP = tic;
-   [~] = PSF.H + 1;
-   [~] = PSF.Ht + 1;
-   psfTime(i) = toc(tP);
-   
-   t2 = tic;
-   [outputs{i}, outputRefs{i}, indexMaps{i, :}] = ...
-      csmu.affinewarp(A{i}, RA, tforms(i));   
-   L.info('Transform %d took %.2f min', i, toc(t2) / 60);
-end
-t1 = toc(t1);
-L.info('Multi-large volume transform test passed in %.2f min.', ...
-   (t1 - sum(psfTime)) / 60);
-L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
-   num2str(psfTime));
-
-t1 = tic;
-outputs = csmu.cellmap(@(r) zeros(r.ImageSize, imageClass), outputRefs);
 for i = 1:2
    tP = tic;
    [~] = PSF.H + 1;
    [~] = PSF.Ht + 1;
    psfTime(i) = toc(tP);
-   
-   t2 = tic;   
-   [P, filt] = indexMaps{i, :};
-   outputs{i}(filt) = A{i}(P);
+
+   t2 = tic;
+   [outputs{i}, outputRefs{i}, indexMaps{i}] = ...
+      csmu.affinewarp(A{i}, RA, tforms(i), args{:});
+   L.info('Transform %d took %.2f min', i, toc(t2) / 60);
+end
+t1 = toc(t1);
+L.info('Multi-large volume transform test passed in %.2f min.', ...
+   (t1 - sum(psfTime)) / 60);
+L.info('\t(total time: %.2f min; psfTime: [%s] s)\n.', t1 / 60, ...
+   num2str(psfTime));
+
+t1 = tic;
+for i = 1:2
+   tP = tic;
+   [~] = PSF.H + 1;
+   [~] = PSF.Ht + 1;
+   psfTime(i) = toc(tP);
+
+   t2 = tic;
+   outputs{i} = csmu.affinewarp(A{i}, 'IndexMap', indexMaps{i});
    L.info('Repeat transform %d took %.2f min.', i, toc(t2) / 60);
 end
 t1 = toc(t1);
 L.info('Multi-repeat transforms took %.2f min.', (t1 - sum(psfTime)) / 60);
-L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
+L.info('\t(total time: %.2f min; psfTime: [%s] s)\n.', t1 / 60, ...
    num2str(psfTime));
 L.info('Done.');
 L.logline(-1);
