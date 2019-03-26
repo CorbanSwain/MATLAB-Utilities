@@ -198,12 +198,20 @@ numelB = prod(RB.ImageSize);
 minChunkSz = 1e8;
 if numelB > minChunkSz
    L.debug('numelB (%.5e) over threshold (%.5e)', numelB, minChunkSz);
-   [~, sv] = memory;
-   avalailableMem = sv.PhysicalMemory.Available;
-   L.debug('Avalible Memory: %.1f GB', avalailableMem / 1E9);
+   os = computer;
+   if os == 'PCWIN64' % windows
+     [~, sv] = memory;
+     availableMem = sv.PhysicalMemory.Available;
+   elseif os == 'GLNXA64' % linux
+     [~, sv] = system('free -b | grep "^Mem" | tr -s " " | cut -d " " -f4 ');
+     availableMem = str2double(sv);
+   else % osx
+     availableMem = 8000000000; % presume 8GB
+   end
+   L.debug('Availible Memory: %.1f GB', availableMem / 1E9);
    heuristic = 10 * 32; % was 15
    chunkSz = avalailableMem / heuristic;
-   threshChunkSz = chunkSz * 4; % was 4
+   threshChunkSz = chunkSz * 4;
    L.debug('Threshold chunk size = %.5e', threshChunkSz);
    doIter = numelB > threshChunkSz;
 else
