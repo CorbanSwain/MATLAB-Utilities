@@ -1,10 +1,12 @@
-function Ainterp = arrayInterp(A, dim, factor, method)
-% Interpolates an array along the specified dimension by a given factor.
-% Output size is the same as input, except along the interpolated 
-% dimension for which the new size is: factor * (size(A, dim) - 1)
-% + 1.
+%ARRAYINTERP Interpolates an array along a given dimension by a given factor.
+%Output size is the same as input, except along the interpolated 
+%dimension for which the new size is: factor * (size(A, dim) - 1) + 1.
 %
 % See also INTERPSIZE and GRIDDEDINTERPOLANT
+
+% Corban Swain, 2018
+
+function Ainterp = arrayInterp(A, dim, factor, method)
 L = csmu.Logger('csmu.arrayInterp');
 
 switch nargin

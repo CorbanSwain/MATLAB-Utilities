@@ -61,8 +61,8 @@
 %             and `filt` are provided such that  `B(filt) = A(P)` is 
 %             equivalent to performing the transform.
 %
-% See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP, 
-% IMREGTFORM, GEOMETRICTRANSFORM3D.
+%   See also AFFINE3D, IMREF3D, CSMU.TRANSFORM, CSMU.IMAGEREF, IMWARP, 
+%   IMREGTFORM, GEOMETRICTRANSFORM3D.
   
 function [varargout] = affinewarp(A, RA, tform, varargin)
 %% Input Handling
@@ -174,10 +174,11 @@ if doIter
    L.debug('ChunkSize = %d pages', chunkSz / pgSz);
    chunks = csmu.getchunks(chunkSz, numelB, 'greedy');
    nChunks = length(chunks);
+   t1 = tic;
    filt = false(1, numelB);
    P = zeros(1, numelB);
    Psel = [0, 0];
-   startIdx = 0;
+   startIdx = 0;   
    for iChunk = 1:nChunks
       L.debug('Beginnging chunk %2d / %2d', iChunk, nChunks);
       tic;
@@ -193,10 +194,15 @@ if doIter
    end
    L.debug('Removing extra points in P.');
    P = P(1:Psel(2));
+   t1 = toc(t1);
+   L.debug('Warp Time = %.2f, SCORE = %2d', t1, round(t1 / numelB * 2e9));
 else
    L.debug('Performing computation in one pass');
+   t1 = tic;
    chunkSel = 1:prod(RB.ImageSize);
    [P, filt] = awHelper(helperArgs{:}, chunkSel);
+   t1 = toc(t1);
+   L.debug('Warp Time = %.2f, SCORE = %2d', t1, round(t1 / numelB * 2e9));
 end
 
 tic;
@@ -325,7 +331,7 @@ L = csmu.Logger('csmu.affinewarp>utest');
 
 levelOld = L.windowLevel;
 cleanup = onCleanup(@() L.globalWindowLevel(levelOld));
-L.globalWindowLevel(csmu.LogLevel.INFO);
+L.globalWindowLevel(csmu.LogLevel.DEBUG);
 L.logline(1);
 L.info('Performing unit tests.');
 
@@ -388,8 +394,8 @@ L.info('Multi-large volume transform test passed in %.2f min.', ...
 L.info('\t(total time; %.2f min; psfTime = [%s] s)\n.', t1 / 60, ...
    num2str(psfTime));
 
-outputs = csmu.cellmap(@(r) zeros(r.ImageSize, imageClass), outputRefs);
 t1 = tic;
+outputs = csmu.cellmap(@(r) zeros(r.ImageSize, imageClass), outputRefs);
 for i = 1:2
    tP = tic;
    [~] = PSF.H + 1;
