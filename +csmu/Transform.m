@@ -143,7 +143,7 @@ classdef Transform < handle & matlab.mixin.Copyable
             else
                B = csmu.changeView(I, RA, RB);
             end
-         else % (not trivial)
+         else % (not a trivial transform)
             cacheLength = length(tformCache);
             doLoad = 0;
             for iCached = 1:cacheLength
@@ -154,23 +154,20 @@ classdef Transform < handle & matlab.mixin.Copyable
             end
             if ~doLoad
                if doSave
-                  [B, RB, Aidx, Bfilt] = csmu.affinewarp(I, RA, ...
+                  [B, RB, indexMap] = csmu.affinewarp(I, RA, ...
                      self.AffineObj, warpArgs{:});
                   if isempty(tformCache), tformCache = struct; end
                   i = cacheLength + 1;
                   tformCache(i).tform = copy(self);
                   tformCache(i).RB = RB;
-                  tformCache(i).Bfilt = Bfilt;
-                  tformCache(i).Aidx = Aidx;
+                  tformCache(i).indexMap = indexMap;
                   tformCache(i).class = class(B);
                else % (don't save)
                   [B, RB] = csmu.affinewarp(I, RA, self.AffineObj, warpArgs{:});
                end
             else % (do load)
                L.debug('Loading transform from `tformCache`.');
-               B = zeros(tformCache(doLoad).RB.ImageSize, ...
-                  tformCache(doLoad).class);
-               B(tformCache(doLoad).Bfilt) = I(tformCache(doLoad).Aidx);
+               B = csmu.affinewarp(I, 'IndexMap', tformCache(doLoad).indexMap);
                RB = tformCache(doLoad).RB;
             end
          end
