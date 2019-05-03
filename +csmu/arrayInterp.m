@@ -2,7 +2,7 @@
 %Output size is the same as input, except along the interpolated 
 %dimension for which the new size is: factor * (size(A, dim) - 1) + 1.
 %
-% See also INTERPSIZE and GRIDDEDINTERPOLANT
+% See also INTERPSIZE and GRIDDEDINTERPOLANT.
 
 % Corban Swain, 2018
 

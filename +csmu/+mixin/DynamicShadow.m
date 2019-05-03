@@ -100,25 +100,41 @@ classdef DynamicShadow < dynamicprops & csmu.Object
          L = csmu.Logger(strcat('+csmu.', mfilename, '/subsref'));
          switch S(1).type
             case '{}'
-               varargout = cell(1, nargout);
-               [varargout{:}] = builtin('subsref', self, S);
+               [varargout{1:nargout}] = builtin('subsref', self, S);
                
             case '()'
                outIndexes = csmu.subsarg2ind(size(self), S(1).subs);
-               varargout = cell(size(outIndexes));
+               
                numSubs = numel(outIndexes);
-               for iSub = 1:numSubs                  
-                  varargout{iSub} = subsref(self(outIndexes(iSub)), S(2:end));
+               if isscalar(S)
+                  varargout = {[]};
+                  for iSub = 1:numSubs
+                     varargout{1} = [varargout{1}, self(outIndexes(iSub))];
+                  end
+               else
+                  varargout = cell(size(outIndexes));
+                  for iSub = 1:numSubs
+                     if nargout
+                        varargout{iSub} = subsref(self(outIndexes(iSub)), ...
+                           S(2:end));
+                     else
+                        subsref(self(outIndexes(iSub)), S(2:end));
+                     end
+                  end
                end
                
             case '.'               
-               varargout = get(self, S(1).subs);               
-               if isscalar(self)
-                  varargout = {varargout};
-               end
-               if ~isscalar(S)
-                  for iArg = 1:numel(varargout)
-                     varargout{iArg} = subsref(varargout{iArg}, S(2:end));
+               if any(strcmp(S(1).subs, methods(self)))
+                  [varargout{1:nargout}] = builtin('subsref', self, S);
+               else                
+                  varargout = get(self, S(1).subs);
+                  if isscalar(self)
+                     varargout = {varargout};
+                  end
+                  if ~isscalar(S)
+                     for iArg = 1:numel(varargout)
+                        varargout{iArg} = subsref(varargout{iArg}, S(2:end));
+                     end
                   end
                end
                

@@ -1,6 +1,6 @@
 function I = contrastAdjust(I, contrast)
 
-maxVal = max(I(:));
+maxVal = max(I, [], 'all');
 % scale to 1
 I = I / maxVal;
 
@@ -8,4 +8,4 @@ I = I / maxVal;
 I = (contrast * ((2 * I) - 1)) + 1;
 
 % scale back to original range
-I = I / 2 * maxVal;
+I = (I / 2) * maxVal;

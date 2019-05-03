@@ -1,23 +1,23 @@
 %QUERYGETFIELD Gets a field or sets and gets a default value from a struct.
-%   [val, S] = QUERYGETFIELD(S, fieldName, default) takes in a struct S
-%   and either (A) returns the value stored in the struct under fieldName
-%   and the struct unaltered or (B) returns default and the struct
-%   altered to have a new field with name fieldName storing the given 
-%   default value. 
-%
-%   Inputs
-%   ------
-%
-%   S                   the struct to get the value from
-%
-%   fieldName           the name of the field
-%
-%   default             the value to be returned if the field does not 
-%                       exist
-%
-%   Example
+%   
+%   Syntax:
 %   -------
+%   [val, S] = QUERYGETFIELD(S, fieldName, default) takes in a struct `S`
+%   and either (A) returns the value stored in the struct under `fieldName`
+%   and the struct unaltered or (B) returns `default` and the struct
+%   altered to have a new field with name `fieldName` storing the given 
+%   default value, `default`. 
 %
+%   Inputs:
+%   -------
+%      S - the struct to get the value from
+%
+%      fieldName - the name of the field
+%
+%      default - the value to be returned if the field does not exist
+%
+%   Example 1:
+%   ----------
 %   This function is most useful if it is locally redefiend to 
 %   automatically update a local struct.
 % 

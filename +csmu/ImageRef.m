@@ -8,6 +8,11 @@ classdef ImageRef < csmu.Object
       
       WorldLimits
       
+      PixelCenterLimits
+      XPixelCenterLimits
+      YPixelCenterLimits
+      ZPixelCenterLimits
+      
       % shadows of imref2d/3d
       XWorldLimits
       YWorldLimits
@@ -38,13 +43,17 @@ classdef ImageRef < csmu.Object
             switch class(varargin{1})
                case self.ImRefClassNames
                   % A matlab imref2d or imref3d object is passed.
-                  narginchk(1, 1)
+                  narginchk(1, 1);
                   self.Ref = varargin{1};
                   
                case 'csmu.ImageRef'
                   % A csmu.ImageRef object is passed.
-                  narginchk(1, 1)
+                  narginchk(1, 1);
                   self = copy(varargin{1});
+                  
+               case 'csmu.Image'
+                  % A csmu.Image object is passed.
+                  self = csmu.ImageRef(varargin{1}.I);
                   
                otherwise
                   assert(isnumeric(varargin{1}), 'Unexpected input provided.');
@@ -82,6 +91,23 @@ classdef ImageRef < csmu.Object
          end
       end
       
+      function out = get.XPixelCenterLimits(self)
+         out = self.XWorldLimits + ([1, -1] * (self.PixelExtentInWorldX / 2));
+      end
+      
+      function out = get.YPixelCenterLimits(self)
+         out = self.YWorldLimits + ([1, -1] * (self.PixelExtentInWorldY / 2));
+      end
+      
+      function out = get.ZPixelCenterLimits(self)
+         if self.NumDims == 2
+            error('A 2d image ref has no property ''ZPixelCenterLimits''');
+         else
+            out = self.ZWorldLimits ...
+               + ([1, -1] * (self.PixelExtentInWorldZ / 2));
+         end
+      end
+      
       function out = get.XWorldLimits(self)
          out = self.Ref.XWorldLimits;
       end
@@ -111,6 +137,13 @@ classdef ImageRef < csmu.Object
          out = {self.Ref.XWorldLimits, self.Ref.YWorldLimits};
          if self.NumDims == 3
             out = [out, {self.ZWorldLimits}];            
+         end
+      end
+      
+      function out = get.PixelCenterLimits(self)
+         out = {self.XPixelCenterLimits, self.YPixelCenterLimits};
+         if self.NumDims == 3
+            out = [out, {self.ZPixelCenterLimits}];            
          end
       end
       

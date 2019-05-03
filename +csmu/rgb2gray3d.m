@@ -11,17 +11,47 @@ p.addOptional('ColorWeight', DEFAULT_COLOR_WT, ...
 p.parse(varargin{:});
 colorwt = p.Results.ColorWeight;
 
+%% Logging
+L = csmu.Logger(['csmu', mfilename]);
+
 %% Perform Conversion
 switch ndims(I)
    case 2
       error('An RGB image must be passed.');
    case 3
-      Igray = rgb2gray(I);
+      dim3Color = size(I, 3) == 3;
+      if dim3Color
+         Igray = rgb2gray(I);
+      else
+         L.error('A grayscale 3d image or improperly formated color 2d', ...
+            'image was passed');
+      end
    case 4
-      assert(size(I, 4) == 3, 'Input image must have exactly 3 color channels');
-      Igray = I(:, :, :, 1) * colorwt(1) ...
-         + I(:, :, :, 2) * colorwt(2) ...
-         + I(:, :, :, 3) * colorwt(3);
+      dim3Color = size(I, 3) == 3;
+      dim4Color = size(I, 4) == 3;
+      if dim3Color && dim4Color
+         colordim = 3;
+      elseif dim3Color
+         colordim = 3;
+      elseif dim4Color
+         colordim = 4;
+      else
+         L.error('No color channel dimension found.');
+      end
+      
+      if colordim == 3
+         Igray = I(:, :, 1, :) * colorwt(1) ...
+            + I(:, :, 2, :) * colorwt(2) ...
+            + I(:, :, 3, :) * colorwt(3);
+         Igray = squeeze(Igray);
+      elseif colordim == 4
+         Igray = I(:, :, :, 1) * colorwt(1) ...
+            + I(:, :, :, 2) * colorwt(2) ...
+            + I(:, :, :, 3) * colorwt(3);
+      else
+         L.error('Invalid color channel dimension.');
+      end
+        
    otherwise
-      error('Input image must be either a 2d or 3d color image.');
+      L.error('Input image must be either a 2d or 3d color image.');
 end

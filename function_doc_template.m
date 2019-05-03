@@ -1,5 +1,6 @@
-%FUNCTIONNAME One-line description.   
-%Longer, multi-line description.
+%FUNCTIONNAME - One-line description.
+%
+%   Longer, multi-line description.
 %
 %   Syntax:
 %   -------
@@ -15,7 +16,7 @@
 %
 %   Outputs:
 %   --------
-%      Y - an output
+%      Y - the output
 %
 %   Notes:
 %   ------
@@ -25,7 +26,7 @@
 %   ----------
 %   A cool example.
 %  
-%      x = 1;
+%      x = magic(5);
 %      y = functionName(x);
 %
-% See also OTHERFUNCTIONNAME.
+%   See also OTHERFUNCTIONNAME.

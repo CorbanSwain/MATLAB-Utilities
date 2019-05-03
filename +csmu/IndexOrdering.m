@@ -51,7 +51,7 @@ inputType = ip.Results.InputType;
 
 if isempty(inputType)
    inputType = classifyInputType(in);
-   L.warn(['Auto classifying input as "%s"; pass an `csmu.IndexType` ', ...
+   L.warn(['Auto classifying input as "%s"; pass a `csmu.IndexType` ', ...
       'explicitly to suppress this warning.'], inputType);
 end
 

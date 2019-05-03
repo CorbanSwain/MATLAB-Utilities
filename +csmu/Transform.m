@@ -15,7 +15,8 @@ classdef Transform < handle & matlab.mixin.Copyable
       RotationUnits (1, :) char ...
          {csmu.validators.mustBeValidRotationUnit} = 'deg'
       
-      TranslationRotationOrder (1, 1) csmu.IndexOrdering
+      TranslationRotationOrder csmu.IndexOrdering ...
+         {csmu.validators.mustBeScalarOrEmpty}
    end
    
    properties (GetAccess = 'private', SetAccess = 'private')
@@ -114,7 +115,7 @@ classdef Transform < handle & matlab.mixin.Copyable
          ip.addParameter('WarpArgs', {}, @(x) iscell(x));
          ip.addParameter('Save', false, @(x) islogical(x) && isscalar(x));
          ip.parse(varargin{:});
-         warpArgs = ip.Results.WarpArgs;
+         warpParams = ip.Results.WarpArgs;
          doSave = ip.Results.Save;
          
          if self.DoReverse
@@ -131,7 +132,7 @@ classdef Transform < handle & matlab.mixin.Copyable
          end
         
          if ~isempty(RB)            
-            warpArgs = [warpArgs, {'OutputView'}, {RB}];
+            warpParams = [warpParams, {'OutputView'}, {RB}];
          end
          
          % no transformation just, potentially, a view change         
@@ -146,28 +147,34 @@ classdef Transform < handle & matlab.mixin.Copyable
          else % (not a trivial transform)
             cacheLength = length(tformCache);
             doLoad = 0;
+            warpArgs = [{RA, self.AffineObj}, warpParams];
             for iCached = 1:cacheLength
-               if isequal(self, tformCache(iCached).tform)
-                  doLoad = iCached;
+               cachedArgs = tformCache(iCached).tformArgs;
+               if isequal(warpArgs, cachedArgs)
+                  if ~isempty(tformCache(iCached).indexMap)
+                     doLoad = iCached;
+                  end
                   break
                end
             end
             if ~doLoad
                if doSave
-                  [B, RB, indexMap] = csmu.affinewarp(I, RA, ...
-                     self.AffineObj, warpArgs{:});
+                  [B, RB, indexMap] = csmu.affinewarp(I, warpArgs{:});
                   if isempty(tformCache), tformCache = struct; end
                   i = cacheLength + 1;
-                  tformCache(i).tform = copy(self);
+                  tformCache(i).tformArgs = warpArgs;
                   tformCache(i).RB = RB;
                   tformCache(i).indexMap = indexMap;
                   tformCache(i).class = class(B);
                else % (don't save)
-                  [B, RB] = csmu.affinewarp(I, RA, self.AffineObj, warpArgs{:});
+                  [B, RB] = csmu.affinewarp(I, warpArgs{:});
                end
             else % (do load)
                L.debug('Loading transform from `tformCache`.');
-               B = csmu.affinewarp(I, 'IndexMap', tformCache(doLoad).indexMap);
+               t1 = tic;
+               B = csmu.affinewarp(I, tformCache.tformArgs{:}, ...
+                  'IndexMap', tformCache(doLoad).indexMap);
+               L.debug('   ... cached transform took %.2f s.', toc(t1));
                RB = tformCache(doLoad).RB;
             end
          end
@@ -271,7 +278,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                   if isempty(idxOrder)
                      L.warn(['`Rotation` property is defaulting to order ', ...
                         'by row-col not x-y; specify the ', ...
-                        '`TranslationRotationOrder` property to suppress', ...
+                        '`TranslationRotationOrder` property to suppress ', ...
                         'this warning.']);
                      rot = self.Rotation;
                   else
@@ -295,7 +302,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                   if isempty(idxOrder)
                      L.warn(['`Translation` property is defaulting to ', ...
                         'order by row-col not x-y; specify the ', ...
-                        '`TranslationRotationOrder` property to suppress', ...
+                        '`TranslationRotationOrder` property to suppress ', ...
                         'this warning.']);
                      trans = self.Translation;
                   else

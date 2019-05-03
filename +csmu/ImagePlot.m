@@ -64,19 +64,21 @@ classdef ImagePlot < csmu.PlotBuilder
          ip.addParameter('SaveDirectory', '');
          ip.addParameter('Text', '');
          ip.addParameter('ScaleBar', []);
-         ip.addParameter('Colormap', 'gray');
+         ip.addParameter('Colormap', 'inferno');
          ip.addParameter('ProjectionViewArgs', {});
          ip.addParameter('DoScaled', true);
          ip.addParameter('CLims', []);
+         ip.addParameter('DoClose', false);
          ip.parse(varargin{:});
          name = ip.Results.Name;
          figureDir = ip.Results.SaveDirectory;
          txt = ip.Results.Text;
-         scaleBarSpec = ip.Results.ScaleBar;
+         scaleBarSpec = ip.Results.ScaleBar;  % TODO
          projViewArgs = ip.Results.ProjectionViewArgs;
          cmap = ip.Results.Colormap;
          doScaled = ip.Results.DoScaled;
          cLims = ip.Results.CLims;
+         doClose = ip.Results.DoClose;
          
          Isz = csmu.projectionView(V, projViewArgs{:}, 'SizeOnly', true);
          I = zeros(Isz);
@@ -102,6 +104,9 @@ classdef ImagePlot < csmu.PlotBuilder
          imPlots = csmu.ImagePlot.projView(V, projViewArgs{:});
          imPlots(1).Colormap = cmap;
          imPlots(1).DoScaled = doScaled;
+         if doScaled && isempty(cLims)
+            cLims = [min(V, [], 'all'), max(V, [], 'all')];
+         end
          imPlots(1).ColorLimits = cLims;
          
          fb = csmu.ImagePlot.fullImageFig(I);
@@ -109,8 +114,13 @@ classdef ImagePlot < csmu.PlotBuilder
          fb.PlotBuilders = [imPlots, tb];
          fb.Name = name;
          fb.figure;
-         fb.save(figureDir);
-         %fb.close;
+         if ~isempty(figureDir)            
+            fb.save(figureDir);
+         end
+         
+         if doClose
+            fb.close;
+         end
       end
       
       function fb = fullImageFig(I)
