@@ -119,7 +119,7 @@ switch processVersion
             L.error('Cannot determine proper tiff Photometric.');
          end
       end
-      L.debug(tags, 'tags');
+      L.trace(tags, 'tags');
       tags.Photometric = tiffPhotometric;      
       t = Tiff(filepath, 'w');
       cleanup = onCleanup(@() t.close);      
@@ -144,7 +144,7 @@ bps = bitsPerSample;
 spp = samplesPerPixel;
 % each strip should be about 8K (65536 bits)
 rps = round(65536 / bps / iw) * 4;
-L.debug('RPS = %d', rps);
+L.trace('RPS = %d', rps);
 end
 
 function unittest

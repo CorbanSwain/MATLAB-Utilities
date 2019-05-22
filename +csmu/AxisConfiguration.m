@@ -1,4 +1,4 @@
-classdef AxisConfiguration < csmu.DynamicShadow
+classdef AxisConfiguration < csmu.DynamicShadowOld
    
    properties
       Grid

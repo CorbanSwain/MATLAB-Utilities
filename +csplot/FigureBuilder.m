@@ -132,16 +132,17 @@ classdef FigureBuilder < csmu.Object
       
       function save(self, varargin)
          if isempty(self.FigureHandle)
-            figure(self);
+            show(self);
          end
          self.saveFigure(self.FigureHandle, varargin{:});
       end % function save(self, varargin)
       
       function close(self)
+         L = csmu.Logger(strcat('csplot.', mfilename, '/close'));
          if ~isempty(self.FigureHandle)
             close(self.FigureHandle)
          else
-            warning(['The figure cannot be closed since it has not', ...
+            L.warning(['The figure cannot be closed since it has not', ...
                ' yet ben drawn.']);
          end
       end

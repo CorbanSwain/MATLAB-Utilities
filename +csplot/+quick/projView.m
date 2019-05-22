@@ -18,6 +18,10 @@ ip.addParameter('DarkMode', false);
 ip.addParameter('DoMaskDark', false);
 ip.addParameter('FigureName', '');
 ip.addParameter('UnitName', '');
+ip.addParameter('ExportOptions', {});
+ip.addParameter('SaveDirectory', '');
+ip.addParameter('DoCloseFigure', false);
+ip.addParameter('AnnotationText', '');
 ip.parse(varargin{:});
 ip = ip.Results;
 cmapName = ip.Colormap;
@@ -37,6 +41,10 @@ doShowAxesArrows = ip.DoShowAxesArrows;
 figureName = ip.FigureName;
 doConvertToRGB = ip.DoConvertToRGB;
 doMaskDark = ip.DoMaskDark;
+saveDir = ip.SaveDirectory;
+doCloseFigure = ip.DoCloseFigure;
+annotationText = ip.AnnotationText;
+exportOptions = ip.ExportOptions;
 
 L = csmu.Logger(strcat('csplot.quick.', mfilename));
 
@@ -159,7 +167,7 @@ end
 axisConfigs.Color = 'k';
 
 fb = csplot.FigureBuilder;
-figureHeight = 1000;
+figureHeight = 1100;
 fb.Position = [100, 100, figureHeight * gs.FigureAspectRatio, figureHeight];
 fb.AxisConfigs = axisConfigs;
 
@@ -233,7 +241,31 @@ if doShowAxesArrows
       num2cell(textPlots([2, 3]))];   
 end
 
+if ~isempty(annotationText)
+   textPlot = csplot.TextPlot;
+   textPlot.Text = annotationText;
+   textPlot.X = 0;
+   textPlot.Y = 1;
+   if doDarkMode
+      textPlot.Color = axesColor;
+   end
+   textPlot.Units = 'normalized';
+   textPlot.FontSize = 8.5;
+   textPlot.FontName = 'input';
+   textPlot.VerticalAlignment = 'top';
+   textPlot.Interpreter = 'none';
+   fb.PlotBuilders{4} = [fb.PlotBuilders{4}, {textPlot}];
+end
+
 if doShowFigure
    fb.show();
+end
+
+if ~isempty(saveDir)
+   fb.save(saveDir, 'ExportOptions', exportOptions);
+end
+
+if doCloseFigure
+   fb.close();
 end
 end

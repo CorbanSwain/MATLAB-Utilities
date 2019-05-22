@@ -1,4 +1,4 @@
-classdef Legend < csmu.DynamicShadow
+classdef Legend < csmu.DynamicShadowOld
    
    properties
       AxisHandle
@@ -21,7 +21,7 @@ classdef Legend < csmu.DynamicShadow
    
    methods
       function self = Legend(labels)
-         self = self@csmu.DynamicShadow;
+         self = self@csmu.DynamicShadowOld;
          if nargin
             self.Labels = labels;
          end

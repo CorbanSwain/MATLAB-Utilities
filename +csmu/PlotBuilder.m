@@ -1,4 +1,4 @@
-classdef PlotBuilder < csmu.DynamicShadow & matlab.mixin.Heterogeneous
+classdef PlotBuilder < csmu.DynamicShadowOld & matlab.mixin.Heterogeneous
    
    methods (Abstract)
       plotGraphics(self, axisHandle)
@@ -18,7 +18,7 @@ classdef PlotBuilder < csmu.DynamicShadow & matlab.mixin.Heterogeneous
          ip.addOptional('ObjectHandle', self.PlotHandle);
          ip.parse(varargin{:});
          objectHandle = ip.Results.ObjectHandle;
-         applyShadowClassProps@csmu.DynamicShadow(self, objectHandle);
+         applyShadowClassProps@csmu.DynamicShadowOld(self, objectHandle);
       end      
       
       function out = getGObjectFcn(self, idx)
