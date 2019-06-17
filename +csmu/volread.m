@@ -4,10 +4,15 @@ if nargin == 0
    return
 end
 
+funcName = strcat('csmu.', mfilename);
+L = csmu.Logger(funcName);
+
 ip = inputParser;
-ip.addParameter('Version', 2)
+ip.addParameter('Version', 2);
+ip.addParameter('Slice', []);
 ip.parse(varargin{:});
 processVersion = ip.Results.Version;
+sliceIdx = ip.Results.Slice;
 
 % FIXME - Only TIFF files supported
 % ensure filename ends in '.tif'
@@ -47,17 +52,30 @@ switch processVersion
          t.nextDirectory;
          nPages = nPages + 1;
       end      
-      t.setDirectory(1);
-      V = zeros([sz, nChannels, nPages], csmu.ImageDataType.bits2class(nBits));
-      V(:, :, :, 1) = t.read(); 
-      for iPage = 2:nPages
-         t.nextDirectory;
-         V(:, :, :, iPage) = t.read();
+      if isempty(sliceIdx)
+         t.setDirectory(1);
+         V = zeros([sz, nChannels, nPages], ...
+            csmu.ImageDataType.bits2class(nBits));
+         V(:, :, :, 1) = t.read();
+         for iPage = 2:nPages
+            t.nextDirectory;
+            V(:, :, :, iPage) = t.read();
+         end         
+      else
+         L.assert(all((sliceIdx > 0) & (sliceIdx <= nPages)), ...
+            'Invalid `Slice` specification.');
+         nSubPages = length(sliceIdx);
+         V = zeros([sz, nChannels, nSubPages], ...
+            csmu.ImageDataType.bits2class(nBits));
+         for iSliceIdx = 1:nSubPages
+            t.setDirectory(sliceIdx(iSliceIdx));
+            V(:, :, :, iSliceIdx) = t.read();
+         end       
       end
       clear('cleanup');
       if nChannels == 1
          V = permute(V, [1 2 4 3]);
-      end            
+      end
 end
 end
 

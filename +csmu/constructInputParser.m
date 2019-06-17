@@ -23,7 +23,7 @@ for iSpec = 1:length(parserSpec)
    end
 end
 
-if ~isempty(inputArgs)
+if iscell(inputArgs)
    outputInputParser.parse(inputArgs{:});
 end
 end
