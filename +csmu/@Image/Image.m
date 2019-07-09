@@ -218,6 +218,9 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          L = csmu.Logger(funcName);
          L.assert(~isempty(self.ChannelDim), ['`ChannelDim` property must ', ...
             'not be empty if attempting to set channel property']);
+         if length(varargin) == 1 && iscell(varargin{1})
+            varargin = varargin{1};
+         end
          newIm = self.stackChannels(self.ChannelDim, varargin{:});
          if ~isempty(self.I) 
             if newIm.Size ~= self.Size
@@ -228,7 +231,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
                   '(%d -> %d).'], self.NumChannels, newIm.NumChannels);
             end
          end
-         self.Channels = newIm;            
+         self.I = newIm.I;            
       end
       
       function out = get.NumElements(self)
@@ -289,7 +292,8 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          if length(varargin) == 1 && isa(varargin{1}, 'csmu.Image')
             channels = copy(varargin{1});            
          else            
-            channels = cellfun(@(im) csmu.Image(im), varargin);            
+            channels = csmu.cellmap(@(im) csmu.Image(im), varargin); 
+            channels = cat(1, channels{:});
          end         
          channels.subsasgn(struct('type', '.', 'subs', 'ChannelDim'), []);
          nChannels = length(channels);

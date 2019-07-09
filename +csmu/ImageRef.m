@@ -211,7 +211,7 @@ classdef ImageRef < csmu.Object
       
       function zeroCenter(self)
          limFun = @(x) [-1 1] * x / 2;
-         self.WorldLimits = arrayfun(limFun, self.ImageSize, ...
+         self.WorldLimits = arrayfun(limFun, self.ImageSize([2, 1, 3]), ...
             'UniformOutput', false);         
       end
          

@@ -103,6 +103,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       
       function [varargout] = warpImage(self, I, varargin)
          L = csmu.Logger('csmu.Transform.warpImage');
+
          persistent tformCache
          if (ischar(I) || isstring(I)) && strcmpi(I, 'clear') 
             L.debug('Clearing tformCache.');
@@ -145,6 +146,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                B = csmu.changeView(I, RA, RB);
             end
          else % (not a trivial transform)
+            L.assert(~islogical(I), 'Cannot transform a logical array.')
             cacheLength = length(tformCache);
             doLoad = 0;
             warpArgs = [{RA, self.AffineObj}, warpParams];

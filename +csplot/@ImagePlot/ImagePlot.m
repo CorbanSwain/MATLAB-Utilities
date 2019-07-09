@@ -23,20 +23,8 @@ classdef ImagePlot < csplot.PlotBuilder
          end
          
          if self.DoConvertToRGB && ~isempty(self.Colormap)
-            cmap = csplot.colormap(self.Colormap);
-            numColors = size(cmap, 1);
-            indexImage = self.I;
-            if ~isempty(self.ColorLimits)
-               if ~isfloat(indexImage)
-                  indexImage = double(indexImage);
-               end
-               indexImage = (indexImage - self.ColorLimits(1)) ...
-                  / diff(self.ColorLimits);
-            elseif self.DoScaled
-               indexImage = csmu.fullscaleim(indexImage);
-            end
-            indexImage = round((indexImage * (numColors - 1)) + 1);
-            rgbImage = ind2rgb(indexImage, cmap);
+            rgbImage = csplot.gray2rgb(self.I, self.Colormap, ...
+               'ColorLimits', self.ColorLimits, 'DoScaled', self.DoScaled);
             args = [args, {'CData', rgbImage}];
             self.PlotHandle = image(args{:});
          else
