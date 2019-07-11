@@ -147,6 +147,8 @@ classdef Transform < handle & matlab.mixin.Copyable
             end
          else % (not a trivial transform)
             L.assert(~islogical(I), 'Cannot transform a logical array.')
+            L.assert(isreal(I), strcat('Cannot transform an array with', ...
+               ' imaginary components.'));
             cacheLength = length(tformCache);
             doLoad = 0;
             warpArgs = [{RA, self.AffineObj}, warpParams];
