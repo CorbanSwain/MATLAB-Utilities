@@ -5,8 +5,8 @@ classdef AutoDeal < handle
    end
    
    methods
-      function self = subsasgn(self, S, varargin)
-         L = csmu.Logger(strcat('+csmu.', mfilename, '/subsasgn'));         
+      function self = subsasgn(self, S, varargin)                  
+         fcnName = strcat('+csmu.mixin.', mfilename, '/subsasgn');
          
          switch S(1).type
             case '{}'
@@ -16,6 +16,7 @@ classdef AutoDeal < handle
                indexes = csmu.subsarg2ind(size(self), S(1).subs);
                numIdxs = numel(indexes);
                if ~isscalar(varargin)
+                  L = csmu.Logger(fcnName);         
                   L.assert(length(varargin) == numIdxs);
                end
                for iSub = 1:numIdxs
@@ -54,7 +55,8 @@ classdef AutoDeal < handle
                end
                
             otherwise
-               L.error('Unexpected subscripted reference type');
+               L = csmu.Logger(fcnName);         
+               L.error('Unexpected subscripted reference type.');
          end         
       end
       

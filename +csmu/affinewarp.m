@@ -1,11 +1,13 @@
 %AFFINEWARP Apply an affine transform to a 3D array.
-%Deprecated: the result of this function can be accomplished by using the 
-%builtin `imwarp`; however, this function (with the 'DoUseBuiltin' parameter 
-%set to false) may prove useful for accomplishing transformations on 
-%memory-limited computers. 
 %
-%This function uses an inverse transform algorithm to assign each point in the 
-%output array to a point in the input array.
+%   DEPRECATED: the result of this function can be accomplished by using the 
+%   builtin `imwarp` and this function has been modified to use the builtin
+%   `imwarp` by default; however, this function (with the 'DoUseBuiltin' 
+%   parameter set to false) may prove useful for accomplishing transformations 
+%   on memory-limited computers. 
+%
+%   This function uses an inverse transform algorithm to assign each point in  
+%   the output array to a point in the input array.
 %
 %   Syntax:
 %   -------
@@ -33,7 +35,7 @@
 %   supplied.
 %
 %   AFFINEWARP() called with no arguments will perform a unit test suite on the
-%   affinewarp function, and print profiling and debugging results to the
+%   affinewarp function and print profiling and debugging results to the
 %   console.
 %
 %   Inputs:
@@ -145,16 +147,19 @@ if doUseBuiltin
    if isa(RA, 'csmu.ImageRef')
       RA = RA.Ref;
    end
-   t1 = tic;
-   warpargs = {A, RA, tform};
-   L.debug('   ... builtin transform took %.1f s', toc(t1));
+   
+   warpargs = {A, RA, tform};   
    if ~isempty(RB)
       if isa(RB, 'csmu.ImageRef')
          RB = RB.Ref;
       end
       warpargs = [warpargs, {'OutputView'}, {RB}];
    end
+   
+   t1 = tic();
    [B, RB] = imwarp(warpargs{:});
+   L.debug('   ... builtin transform took %.1f s', toc(t1));
+   
    switch nargout
       case 1
          varargout = {B};

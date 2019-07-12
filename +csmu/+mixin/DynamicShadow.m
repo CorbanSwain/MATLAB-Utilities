@@ -97,7 +97,8 @@ classdef DynamicShadow < dynamicprops & csmu.Object
       end
       
       function [varargout] = subsref(self, S)
-         L = csmu.Logger(strcat('+csmu.', mfilename, '/subsref'));
+         fcnName = strcat('csmu.mixin.', mfilename, '/subsref');
+         
          switch S(1).type
             case '{}'
                [varargout{1:nargout}] = builtin('subsref', self, S);
@@ -139,7 +140,8 @@ classdef DynamicShadow < dynamicprops & csmu.Object
                end
                
             otherwise
-               L.error('Unexpected subscripted reference type');
+               L = csmu.Logger(fcnName);
+               L.error('Unexpected subscripted reference type.');
          end
       end      
       
