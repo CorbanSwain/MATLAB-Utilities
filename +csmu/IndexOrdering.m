@@ -28,7 +28,11 @@ end
 function inputType = classifyInputType(in)
 if isvector(in)
    if isscalar(in)
-      inputType = csmu.IndexType.SCALAR;
+      if in > 0 && in < 3
+         inputType = csmu.IndexType.INDEX;
+      else
+         inputType = csmu.IndexType.SCALAR;
+      end
    else
       inputType = csmu.IndexType.VECTOR;
    end
@@ -75,5 +79,15 @@ switch inputType
    case csmu.IndexType.POINT_LIST
       out = in;
       out(:, oldOrder) = out(:, newOrder);
+      
+   case csmu.IndexType.INDEX
+      switch in
+         case 1
+            out = 2;
+         case 2
+            out = 1;
+         otherwise
+            out = in;
+      end           
 end
 end

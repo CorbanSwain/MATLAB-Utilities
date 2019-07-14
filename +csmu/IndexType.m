@@ -39,5 +39,6 @@ classdef IndexType
       VECTOR ('vector')
       ARRAY ('array')
       POINT_LIST ('point_list')
+      INDEX ('index')
    end
 end
