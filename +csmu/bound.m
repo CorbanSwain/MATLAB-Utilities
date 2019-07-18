@@ -17,38 +17,50 @@ end
 
 
 switch nargin
-    case 3
-        warn = false;
-    case 4
-        warn = true;
-    otherwise
-        error('Unexpected number of arguments.');
+   case 3
+      doWarn = false;
+   case 4
+      doWarn = true;
+   otherwise
+      error('Unexpected number of arguments.');
 end
 
-lessThanMin = X < min;
-greaterThanMax = X > max;
+doCheckMin = ~isempty(min);
+doCheckMax = ~isempty(max);
 
-if warn
-    if any(lessThanMin)
-        warning('%s cannot be smaller than [%s], truncating value(s).', ...
-                name, num2str(min));
-    end
-    if any(greaterThanMax)
-        warning('%s cannot be larger than [%s], truncating value(s).', ...
-                name, num2str(max));
-    end
+if doCheckMin
+   lessThanMin = X < min;
 end
 
-if isscalar(min)
-   X(lessThanMin) = min;
-else
-   X(lessThanMin) = min(lessThanMin);
+if doCheckMax
+   greaterThanMax = X > max;
 end
 
-if isscalar(max)
-   X(greaterThanMax) = max;
-else
-   X(greaterThanMax) = max(greaterThanMax);
+if doWarn
+   if doCheckMin && any(lessThanMin)
+      warning('%s cannot be smaller than [%s], truncating value(s).', ...
+         name, num2str(min));
+   end
+   if doCheckMax && any(greaterThanMax)
+      warning('%s cannot be larger than [%s], truncating value(s).', ...
+         name, num2str(max));
+   end
+end
+
+if doCheckMin
+   if isscalar(min)
+      X(lessThanMin) = min;
+   else
+      X(lessThanMin) = min(lessThanMin);
+   end
+end
+
+if doCheckMax
+   if isscalar(max)
+      X(greaterThanMax) = max;
+   else
+      X(greaterThanMax) = max(greaterThanMax);
+   end
 end
 end
 
