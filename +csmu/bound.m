@@ -1,4 +1,4 @@
-function X = bound(X, min, max, name)
+function X = bound(X, minVal, maxVal, varName)
 %BOUND Bound between a min and max.
 %
 % BOUND(X, min, max) will reduce all items in X greater than max to max,
@@ -25,41 +25,41 @@ switch nargin
       error('Unexpected number of arguments.');
 end
 
-doCheckMin = ~isempty(min);
-doCheckMax = ~isempty(max);
+doCheckMin = ~isempty(minVal);
+doCheckMax = ~isempty(maxVal);
 
 if doCheckMin
-   lessThanMin = X < min;
+   lessThanMin = X < minVal;
 end
 
 if doCheckMax
-   greaterThanMax = X > max;
+   greaterThanMax = X > maxVal;
 end
 
 if doWarn
    if doCheckMin && any(lessThanMin)
       warning('%s cannot be smaller than [%s], truncating value(s).', ...
-         name, num2str(min));
+         varName, num2str(minVal));
    end
    if doCheckMax && any(greaterThanMax)
       warning('%s cannot be larger than [%s], truncating value(s).', ...
-         name, num2str(max));
+         varName, num2str(maxVal));
    end
 end
 
 if doCheckMin
-   if isscalar(min)
-      X(lessThanMin) = min;
+   if isscalar(minVal)
+      X(lessThanMin) = minVal;
    else
-      X(lessThanMin) = min(lessThanMin);
+      X(lessThanMin) = minVal(lessThanMin);
    end
 end
 
 if doCheckMax
-   if isscalar(max)
-      X(greaterThanMax) = max;
+   if isscalar(maxVal)
+      X(greaterThanMax) = maxVal;
    else
-      X(greaterThanMax) = max(greaterThanMax);
+      X(greaterThanMax) = maxVal(greaterThanMax);
    end
 end
 end
