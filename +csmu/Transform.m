@@ -162,7 +162,7 @@ classdef Transform < handle & matlab.mixin.Copyable
                end
             end
             if ~doLoad
-               L.info('Performing non-trivial transformation.');
+               L.debug('Performing non-trivial transformation.');
                if doSave
                   [B, RB, indexMap] = csmu.affinewarp(I, warpArgs{:});
                   if isempty(tformCache), tformCache = struct; end

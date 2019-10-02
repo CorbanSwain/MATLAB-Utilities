@@ -30,3 +30,23 @@
 %      y = functionName(x);
 %
 %   See also OTHERFUNCTIONNAME.
+
+% AuthorFirst AuthorLast, Year
+
+function Y = functionName(X, varargin)
+%% Meta Setup
+%%% Function Metadata
+fcnName = strcat('', mfilename);
+
+%%% Logging
+L = csmu.Logger(fcnName);
+
+%%% Input Handling
+parserSpec = {
+   {'p', 'ParamName', 'defaultVal'}
+   };
+ip = csmu.constructInputParser(parserSpec, 'Name', fcnName, 'Args', varargin);
+inputs = ip.Results;
+
+%% Evaluation
+end

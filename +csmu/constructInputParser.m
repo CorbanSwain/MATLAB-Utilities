@@ -3,10 +3,12 @@ ip = inputParser();
 ip.FunctionName = strcat('csmu.', mfilename);
 ip.addParameter('Name', '', @csmu.validators.scalarStringLike);
 ip.addParameter('Args', [], @iscell);
+ip.addParameter('DoKeepUnmatched', false);
 ip.parse(varargin{:});
 ip = ip.Results;
 functionName = ip.Name;
 inputArgs = ip.Args;
+doKeepUnmatched = ip.DoKeepUnmatched;
 
 requiredFlags = {'r', 'required', 'addrequired'};
 optionalFlags = {'o', 'optional', 'addoptional'};
@@ -14,6 +16,7 @@ parameterFlags = {'p', 'param', 'parameter', 'addparameter'};
 
 outputInputParser = inputParser();
 outputInputParser.FunctionName = functionName;
+outputInputParser.KeepUnmatched = doKeepUnmatched;
 for iSpec = 1:length(parserSpec)
    spec = parserSpec{iSpec};
    inputTypeFlag = lower(spec{1});

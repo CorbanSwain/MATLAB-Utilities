@@ -1,16 +1,17 @@
 function score = scoreim(I, varargin)
 L = csmu.Logger('csmu.scoreim');
 
-% FIXME - this only works with boolean reference images right now.
+% FIXED - this only works with boolean reference images right now.
 persistent R;
 if nargin == 1
-   L.info('csmu.scoreim: saving reference image in persistent store.\n')
+   L.info('Saving reference image in persistent store.')
    R = I;
    return;
 end
 
 p = inputParser;
-methodList = {'sumOutside', 'fakeSnr', 'psnr', 'correlation', 'all'};
+methodList = {'sumOutside', 'fakeSnr', 'psnr', 'correlation', 'all', ...
+   'dbsnr'};
 p.addParameter('method', 'all', @(x) any(strcmp(x, methodList)));
 p.parse(varargin{:});
 method = p.Results.method;
@@ -26,7 +27,7 @@ catch
    clsmax = 1;
 end
 
-doAll = strcmp(method, 'all');
+doAll = strcmpi(method, 'all');
 nMeth = length(methodList) - 1;
 score = [];
 
@@ -55,7 +56,12 @@ for iMeth = 1:nMeth
          if ~isfloat(I), I = double(I); end
          if ~isfloat(R), R = double(R); end
          corrmat = corrcoef(I(:), R(:));
-         score = corrmat(1, 2);
+         score = [score, corrmat(1, 2)];
+         
+      case 'dbsnr'
+         if ~isfloat(I), I = double(I); end
+         if ~isfloat(R), R = double(R); end
+         score = [score, 20 * log10(sumsqr(R) / sumsqr(R - I))];         
          
       otherwise
          L.error('Unrecognized method: ''%s''', method);
