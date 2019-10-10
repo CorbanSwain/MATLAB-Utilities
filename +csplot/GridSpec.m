@@ -12,7 +12,11 @@ classdef GridSpec < csmu.Object
    end
    
    properties (Dependent)
+      % FigureAspectRatio
+      %
+      % Multiply this value by the figure height to get the figure width.
       FigureAspectRatio
+      
       Size
    end
    
@@ -185,9 +189,9 @@ classdef GridSpec < csmu.Object
          out = [self.NumRows, self.NumColumns];
       end
       
-      function widthByHeight = get.FigureAspectRatio(self)
-         height = self.NumRows + ((self.NumRows - 1) * self.HSpace);
-         width = self.NumColumns + ((self.NumColumns - 1) * self.VSpace);
+      function widthByHeight = get.FigureAspectRatio(self)         
+         height = self.NumRows + ((self.NumRows - 1) * self.VSpace);
+         width = self.NumColumns + ((self.NumColumns - 1) * self.HSpace);
          
          height = height / (1 - self.Top - self.Bottom);
          width = width / (1 - self.Left - self.Right);

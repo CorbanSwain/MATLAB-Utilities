@@ -1,4 +1,5 @@
 function touchdir(newdir)
- if ~isdir(newdir)
-    mkdir(newdir)
- end
+if ~isdir(newdir)
+   mkdir(newdir)
+end
+end

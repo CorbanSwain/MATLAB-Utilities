@@ -1,10 +1,10 @@
 function [xf, yf] = du2fu(ax,x,y)
-% DU2FUN Transforms data units to normalided figure units.
+% DU2FU Transforms data units to normalized figure units.
 pos = ax.Position;
 xLimits = ax.XLim;
 yLimits = ax.YLim;
 
-xf = (x - xLimits(1)) / (xLimits(2) - xLimits(1));
+xf = (x - xLimits(1)) ./ (xLimits(2) - xLimits(1));
 if strcmpi(ax.XDir, 'reverse')
    xf = (pos(1) + pos(3)) - (xf * pos(3));
 else
@@ -17,9 +17,4 @@ if strcmpi(ax.YDir, 'reverse')
 else
    yf = (yf * pos(4)) + pos(2);
 end
-
-
-
-
-
 end

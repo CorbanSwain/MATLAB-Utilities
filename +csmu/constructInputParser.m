@@ -28,9 +28,13 @@ for iSpec = 1:length(parserSpec)
       case [optionalFlags, parameterFlags]
          validatorIdx = 3;
    end
-   if length(args) == validatorIdx ...
-         && csmu.validators.stringLike(args{validatorIdx})
+   if length(args) == validatorIdx
+      if csmu.validators.stringLike(args{validatorIdx})
          args{validatorIdx} = @(x) csmu.validators.(args{validatorIdx})(x);
+      elseif iscell(args{validatorIdx})
+         args{validatorIdx} = ...
+            @(x) csmu.validators.member(x, args{validatorIdx});
+      end
    end
    
    switch inputTypeFlag
