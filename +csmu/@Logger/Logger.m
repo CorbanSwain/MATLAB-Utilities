@@ -19,7 +19,7 @@ classdef Logger < handle
       % Properties with instance counterpart
       DEFAULT_PATH {mustBeStringLike} = 'untitled_log.log'
       DEFAULT_FORMAT {mustBeStringLike} = '%s: %s'
-      DEFAULT_STAMP_FORMAT {mustBeStringLike} = '[%s | %-7s] '
+      DEFAULT_STAMP_FORMAT {mustBeStringLike} = '[%s | %-7s | %s] '
       DEFAULT_DATETIME_FORMAT {mustBeDatestrFormat} = 'yymmdd-HH:MM:SS'
       DEFAULT_INDENT_MODE csmu.IndentMode = csmu.IndentMode.AUTO
       DEFAULT_WINDOW_LEVEL csmu.LogLevel = csmu.LogLevel.INFO
@@ -28,6 +28,8 @@ classdef Logger < handle
          {mustBeInteger, mustBeNonnegative} = 20
       DEFAULT_DO_AUTOLOG {mustBeBoolean} = true
       DEFAULT_DO_AUTO_LINE_NUMBER {mustBeBoolean} = true
+      DEFAULT_ID = 0
+      DEFAULT_ID_FORMAT = '%03d'
    end
    
    properties
@@ -42,6 +44,8 @@ classdef Logger < handle
       windowLevel
       level
       maxScriptNameLength
+      id
+      idFormat
    end
    
    properties (Dependent, Access = protected)
@@ -50,6 +54,7 @@ classdef Logger < handle
       doIndent {mustBeBoolean}
       doAutolog {mustBeBoolean}
       doAutoLineNumber {mustBeBoolean}
+
    end
    
    methods (Static)
@@ -200,6 +205,32 @@ classdef Logger < handle
          val = pVal;
       end
       
+      function val = globalId(val)
+         persistent pVal;
+         if nargin
+            if strcmpi('clear', val) || isempty(val)
+               pVal = [];
+            else
+               mustBeInteger(val);
+               pVal = val;
+            end
+         end
+         val = pVal;
+      end
+      
+      function val = globalIdFormat(val)
+         persistent pVal;
+         if nargin
+            if strcmpi('clear', val) || isempty(val)
+               pVal = [];
+            else
+               mustBeStringLike(val);
+               pVal = val;
+            end
+         end
+         val = pVal;
+      end
+      
    end
    
    
@@ -278,6 +309,16 @@ classdef Logger < handle
          mustBeInteger(val);
          mustBeNonnegative(val);
          self.maxScriptNameLength = val;
+      end
+      
+      function set.id(self, val)
+         mustBeInteger(val);
+         self.id = val;
+      end
+      
+      function set.idFormat(self, val)
+         mustBeStringLike(val);
+         self.idFormat = val;
       end
       
       %%% Getters
@@ -359,6 +400,26 @@ classdef Logger < handle
          if ~isempty(val), return; end
          
          val = self.DEFAULT_MAX_SCRIPT_NAME_LENGTH;
+      end
+      
+      function val = get.id(self)
+         val = self.id;
+         if ~isempty(val), return; end
+         
+         val = self.globalId;
+         if ~isempty(val), return; end
+         
+         val = self.DEFAULT_ID;
+      end
+      
+      function val = get.idFormat(self)
+         val = self.idFormat;
+         if ~isempty(val), return; end
+         
+         val = self.globalIdFormat;
+         if ~isempty(val), return; end
+         
+         val = self.DEFAULT_ID_FORMAT;
       end
       
       %%% Dependent Getters

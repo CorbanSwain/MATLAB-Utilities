@@ -1,4 +1,12 @@
 function log(self, level, lineNum, varargin)
+
+doWindowLog = self.windowLevel <= level;
+doLog = self.level <= level;
+% if doing no loggong, just end here
+if ~(doWindowLog || doLog)
+   return
+end
+
 name = self.truncatedScriptName;
 if ~isempty(lineNum)
    name = sprintf('%s (% 4d)', name, lineNum);
@@ -41,13 +49,13 @@ else
    makeLogstring = @() sprintf(self.format, name, message);
 end
 logstring = char;
-if self.windowLevel <= level
+if doWindowLog
    logstring = makeLogstring();
    fprintf ('%s \n', logstring);
 end
 
 %If currently set log level is too high, just skip this log
-if self.level > level
+if ~doLog
    return
 end
 
@@ -56,7 +64,8 @@ if isempty(logstring), logstring = makeLogstring(); end
 try
    fid = fopen(self.path, 'a');
    fprintf (fid, [self.stampFormat, '%s \n'], ...
-      datestr(now, self.datetimeFormat), level, logstring);
+      datestr(now, self.datetimeFormat), level, ...
+      sprintf(self.idFormat, self.id), logstring);
    fclose(fid);
 catch ME_1
    disp(ME_1);
