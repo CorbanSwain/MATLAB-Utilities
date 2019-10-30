@@ -1,6 +1,8 @@
 function [xf, yf] = du2fu(ax,x,y)
 % DU2FU Transforms data units to normalized figure units.
 pos = ax.Position;
+
+
 xLimits = ax.XLim;
 yLimits = ax.YLim;
 

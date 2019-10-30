@@ -85,8 +85,9 @@ classdef AxisConfiguration < csmu.DynamicShadowOld
             end
          end
          
-         isYYPropFun = @(name, val) startsWith(name, 'Y') && iscell(val) ...
-            && length(val) == 2;
+         isYYPropFun = @(name, val) startsWith(name, 'Y') && ((iscell(val) ...
+            && length(val) == 2 && ~endsWith(name, 'TickLabel')) ...
+            || (iscell(val) && iscell(val{1}) && endsWith(name, 'TickLabel')));
          axisProps = self.AllDynamicShadowPropNames;
          for iProp = 1:length(axisProps)
             propName = axisProps{iProp};
@@ -97,7 +98,14 @@ classdef AxisConfiguration < csmu.DynamicShadowOld
                   if ~any(strcmpi(propName, {'xlabel', 'ylabel', 'zlabel'}))
                      axisHandle.(propName) = propVal;
                   else
-                     axisHandle.(propName).String = propVal;
+                     if isstruct(propVal)
+                        for fName = fieldnames(propVal)'
+                           axisHandle.(propName).(fName{:}) = ...
+                              propVal.(fName{:});
+                        end
+                     else
+                        axisHandle.(propName).String = propVal;
+                     end
                   end
                else
                   if ~endsWith(propName, 'label', 'IgnoreCase', true)

@@ -3,6 +3,7 @@ classdef FigureBuilder < handle
    properties
       Number
       Name
+      Color
       Position
       SubplotSize = [1, 1]
       DoUseSubplot = true;
@@ -43,6 +44,10 @@ classdef FigureBuilder < handle
             h.Position = self.Position;
          end
          
+         if ~isempty(self.Color)
+            h.Color = self.Color;
+         end
+         
          if self.DoUseSubplot
             nSubplots = prod(self.SubplotSize);
             if  nSubplots < length(self.PlotBuilders)
@@ -66,16 +71,15 @@ classdef FigureBuilder < handle
             else
                ax = axes('Parent', h);
             end
-            self.AxisHandles(iPlot) = ax;
             hold(ax, 'on');
+             
+            self.AxisHandles(iPlot) = ax;
+            self.AxisConfigs(iPlot).apply(ax);
+           
             for iLayer = 1:numel(self.PlotBuilders{iPlot})
                self.PlotBuilders{iPlot}(iLayer).plot(ax);
             end           
-         end
-         
-         for iPlot = 1:length(self.PlotBuilders)
-             self.AxisConfigs(iPlot).apply(self.AxisHandles(iPlot));
-         end
+         end         
          
          for iLink = 1:size(self.LinkProps, 1)
             [axsIdx, props] = self.LinkProps{iLink, :};
@@ -100,7 +104,7 @@ classdef FigureBuilder < handle
       
       function save(self, varargin)
          if isempty(self.FigureHandle)
-            figure(self);
+            self.figure();
          end
          self.saveFigure(self.FigureHandle, varargin{:});
       end % function save(self, varargin)

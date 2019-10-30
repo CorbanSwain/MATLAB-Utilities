@@ -23,7 +23,7 @@ classdef BoxPosition < matlab.mixin.Copyable
       function self = BoxPosition(varargin)
          if nargin            
             assert(nargin == 1);
-            [self.Bottom, self.Left, self.Width, self.Height] ...
+            [self.Left, self.Bottom, self.Width, self.Height] ...
                = csmu.cell2csl(num2cell(varargin{1}));
          end
       end

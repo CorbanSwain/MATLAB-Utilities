@@ -152,8 +152,9 @@ classdef ImageRef < csmu.Object
          function newLims = convertLims(dimSz, lims)
             newLims = mean(lims) + (dimSz / 2 * [-1 1]);
          end         
+         XYSize = [imSize([2, 1]), imSize(3:end)];
          properLimits = csmu.cellmap(@(l, s) convertLims(s, l), val, ...
-            num2cell(imSize([2 1 3])));
+            num2cell(XYSize));
          self.Ref = csmu.ImageRef(imSize, properLimits{:});
       end
       
