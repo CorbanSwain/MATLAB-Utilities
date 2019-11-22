@@ -1,7 +1,8 @@
 function tform = imref2translation(imref)
-tform = csmu.Transform;
+tform = csmu.Transform();
 tform.Translation = 0.5 + [...
    imref.YWorldLimits(1), ...
    imref.XWorldLimits(1), ...
    imref.ZWorldLimits(1)];
+tform.TranslationRotationOrder = csmu.IndexOrdering.ROWCOL;
 end
