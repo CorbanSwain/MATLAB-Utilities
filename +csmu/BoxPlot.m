@@ -11,7 +11,7 @@ classdef BoxPlot < csmu.PlotBuilder
       DoShowPoints (1, 1) logical = false
       PointsMinBinSize
       PointsMaxSpread = 0.75
-      PointsPlotBuilder csmu.LinePlot
+      PointsPlotBuilder csmu.ScatterPlot
       DoLabelPoints
       DoShowOutlier
       DefaultColor
@@ -97,9 +97,12 @@ classdef BoxPlot < csmu.PlotBuilder
             scatterPlot.TextBuilder = textPlot;
          end
          
+         [ys, xs, Is] = csmu.deoverlapVals(vals, deoverlapArgs{:});
          for iGroup = 1:nGroups
             iScatterPlot = copy(scatterPlot);
-            [y, x, I] = csmu.deoverlapVals(vals(:, iGroup), deoverlapArgs{:});
+            x = xs(:, iGroup);
+            y = ys(:, iGroup);
+            I = Is(:, iGroup);
             x = x + iGroup;
             if self.DoLabelPoints
                texts = cell(1, length(I));
@@ -107,7 +110,12 @@ classdef BoxPlot < csmu.PlotBuilder
                   texts{iText} = sprintf('%d', I(iText));
                end
                iScatterPlot.Text = texts;
-            end                     
+            end   
+            if ~isempty(self.Colors)
+               currentColor = self.Colors(iGroup, :);
+               iScatterPlot.MarkerEdgeColor = currentColor;
+               iScatterPlot.MarkerFaceColor = currentColor;
+            end
             iScatterPlot.X = x;
             iScatterPlot.Y = y;
             iScatterPlot.plotGraphics(axisHandle);

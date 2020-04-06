@@ -73,12 +73,13 @@ classdef FigureBuilder < handle
             end
             hold(ax, 'on');
              
-            self.AxisHandles(iPlot) = ax;
-            self.AxisConfigs(iPlot).apply(ax);
+            self.AxisHandles(iPlot) = ax;           
            
             for iLayer = 1:numel(self.PlotBuilders{iPlot})
                self.PlotBuilders{iPlot}(iLayer).plot(ax);
             end           
+            
+            self.AxisConfigs(iPlot).apply(ax);
          end         
          
          for iLink = 1:size(self.LinkProps, 1)

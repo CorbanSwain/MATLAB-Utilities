@@ -2,6 +2,7 @@ classdef DynamicShadowOld < dynamicprops & csmu.Object
    
    properties (Hidden = true)
       DynamicShadowProps
+      PropsToSet = {}
    end
    
    properties (Abstract, Constant)
@@ -65,7 +66,7 @@ classdef DynamicShadowOld < dynamicprops & csmu.Object
             for iProp = 1:length(propList)
                propName = propList{iProp};
                propVal = self.(propName);
-               if ~isempty(propVal)
+               if ~isempty(propVal) || contains(propName, self.PropsToSet)
                   validPropName = propName((length(tag) + 1):end);
                   objectHandle.(validPropName) = propVal;
                end
