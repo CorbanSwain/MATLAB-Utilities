@@ -49,7 +49,7 @@ switch processVersion
       nChannels = t.getTag('SamplesPerPixel');
       nPages = 1;
       while ~t.lastDirectory
-         t.nextDirectory;
+         t.nextDirectory();
          nPages = nPages + 1;
       end      
       if isempty(sliceIdx)

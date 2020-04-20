@@ -1,26 +1,20 @@
-%FUNCTIONNAME - One-line description.
+%FUNCTIONNAME One-line description.
 %
 %   Longer, multi-line description.
 %
-%   Syntax:
-%   -------
 %   Y = FUNCTIONNAME(X) operates on `X` to return `Y`.
 %
-%   Inputs:
-%   -------
-%      X - an input
-%          * type: numeric
+%   Inputs
+%      - X (1, 1) double {integer}
+%      
+%      Parameter/Value Pairs
+%         - 'ParamName' (1, 1) double {integer}
 %
-%      parameter/value pairs:
-%         'ParamName' - a parameter
+%   Outputs
+%      - Y the output
 %
-%   Outputs:
-%   --------
-%      Y - the output
-%
-%   Notes:
-%   ------
-%   - This function has special powers.
+%   Notes
+%      This function has special powers.
 %
 %   Example 1:
 %   ----------
@@ -33,20 +27,17 @@
 
 % AuthorFirst AuthorLast, Year
 
-function Y = functionName(X, varargin)
-%% Meta Setup
-%%% Function Metadata
-fcnName = strcat('', mfilename);
-
-%%% Logging
-L = csmu.Logger(fcnName);
-
-%%% Input Handling
-parserSpec = {
-   {'p', 'ParamName', 'defaultVal'}
-   };
-ip = csmu.constructInputParser(parserSpec, 'Name', fcnName, 'Args', varargin);
-inputs = ip.Results;
-
-%% Evaluation
+function output = hasField(fieldName, S)
+fields = fieldnames(struct);
+matches = strfind(fieldName, S, 'ForceCellOutput', true);
+matches = cat(2, matches{:});
+filteredFields = fields(matches == 1);
+numFilteredFields = length(filteredFields);
+if  numFilteredFields >= 1
+   for iField = 1:numFilteredFields
+      if strcmp(fieldName, 
+   end
+else
+   output = false;
+end
 end

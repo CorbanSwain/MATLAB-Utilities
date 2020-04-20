@@ -2,7 +2,8 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
    
    properties      
       ImageRef      
-      ChannelDim
+      ChannelDim {csmu.validators.mustBeScalarOrEmpty, mustBeInteger} = []
+      TimepointDim {csmu.validators.mustBeScalarOrEmpty, mustBeInteger} = []
       FilePath
    end
    
@@ -18,16 +19,27 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
    
    properties (Dependent)
       I
-      Class     
-      Channels
-      NumChannels
-      HasChannels     
+      Class                 
       NumDims
       NumElements
-      Size      
+     
+      Size 
+      DataSize
+      SingleChannelSize
+      SingleTimepointSize  
+      
+      Channels
+      NumChannels
+      HasChannels
+      
+      Timepoints
+      NumTimepoints
+      HasTimepoints    
    end
    
    properties (Dependent, Hidden = true)
+    
+      
       NDims
       XYProjection
       XZProjection
@@ -43,49 +55,66 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
    end
    
    methods
-      function self = Image(imageLike, varargin)
+      function self = Image(varargin)      
          funcName = strcat('csmu.', mfilename);
          L = csmu.Logger(funcName);
+         
          if nargin
-            parserSpec = {
-               {'p', 'DoAutoChannelDim', true, @csmu.validators.logicalScalar}
-               {'p', 'Slice', []}};
-            ip = csmu.constructInputParser(parserSpec, 'Name', funcName, ...
-               'Args', varargin);
-            ip = ip.Results;                 
-            
-            switch class(imageLike)
-               case 'csmu.Image'
-                  self = copy(imageLike);
-                  
-               case {'char', 'string'}
-                  self.FilePath = imageLike;                  
-                  
-               otherwise
-                  L.assert(isnumeric(imageLike) || islogical(imageLike), ...
-                     'Input must be image-like (arr, csmu.Image, or path).');
-                  self.I = imageLike;
+            try
+               sizeCell = csmu.parseSizeArgs(varargin{:});
+               isSizeCellPassed = true;
+            catch
+               isSizeCellPassed = false;
             end
-            self.SliceIdx = ip.Slice;
             
-            if ip.DoAutoChannelDim
-               threeDims = find(self.Size == 3);
-               if ~isempty(threeDims) && any(threeDims > 2)
-                  threeDims = threeDims(threeDims > 2);
-                  if isscalar(threeDims)
-                     self.ChannelDim = threeDims;
-                     L.warn('Assuming channel dimension to be dim # %d.', ...
-                        threeDims);
-                  else
-                     L.warn(['Ambiguous auto-interpretation for the ', ...
-                        'channel dimension, could be any of [%s]. Leaving ', ...
-                        '`ChannelDim` property empty because of this ', ...
-                        'ambiguity.'], num2str(threeDims));
+            if isSizeCellPassed
+               self(sizeCell{:}) = csmu.Image();
+               for iElement = 1:(numel(self) - 1)
+                  self(iElement) = csmu.Image();
+               end
+            else
+               imageLike = varargin{1};
+               otherArgs = varargin(2:end);               
+               
+               parserSpec = {
+                  {'p', 'DoAutoChannelDim', true, 'logicalScalar'}
+                  {'p', 'Slice', []}};
+               ip = csmu.constructInputParser(parserSpec, 'Name', funcName, ...
+                  'Args', otherArgs);
+               ip = ip.Results;
+               
+               switch class(imageLike)
+                  case 'csmu.Image'
+                     self = copy(imageLike);
+                     
+                  case {'char', 'string'}
+                     self.FilePath = imageLike;
+                     
+                  otherwise
+                     L.assert(isnumeric(imageLike) || islogical(imageLike), ...
+                        'Input must be image-like (arr, csmu.Image, or path).');
+                     self.I = imageLike;
+               end
+               self.SliceIdx = ip.Slice;
+               
+               if ip.DoAutoChannelDim
+                  threeDims = find(self.Size == 3);
+                  if ~isempty(threeDims) && any(threeDims > 2)
+                     threeDims = threeDims(threeDims > 2);
+                     if isscalar(threeDims)
+                        self.ChannelDim = threeDims;
+                        L.warn('Assuming channel dimension to be dim # %d.', ...
+                           threeDims);
+                     else
+                        L.warn(['Ambiguous auto-interpretation for the ', ...
+                           'channel dimension, could be any of [%s]. ', ...
+                           'Leaving `ChannelDim` property empty because ', ...
+                           'of this ambiguity.'], num2str(threeDims));
+                     end                     
                   end
-                  
                end
             end
-         end           
+         end
       end
       
       filter(self, varargin)
@@ -160,43 +189,42 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          end
       end
       
-      function out = get.NumDims(self)
-          if isempty(self.I)
-            out = [];
-         else
-            if self.HasChannels
-               out = ndims(self.Channels(1).I);               
-            else
-               out = ndims(self.I);
-            end
-          end
-      end
-      
-      function out = get.NDims(self)
-        funcName  = strcat('csmu.', mfilename, '/get.NDims');
-        L = csmu.Logger(funcName);
-        L.warn('Property `NDims` is deprecated; use `NumDims` instead.');
-        out = self.NumDims;
-      end
-      
-      function out = get.Size(self)
+      function out = get.DataSize(self)
          if isempty(self.I)
             out = [];
          else
-            if self.HasChannels
-               out = size(self.Channels(1).I);
-            else
-               out = size(self.I);
-            end
+            out = size(self.I);
          end
       end
       
+      function out = get.Size(self)
+         out = self.DataSize;
+         out([self.ChannelDim, self.TimepointDim]) = [];
+      end
+      
+      function out = get.SingleChannelSize(self)
+         out = self.DataSize;
+         out(self.TimepointDim) = [];
+      end
+      
+      function out = get.SingleTimepointSize(self)
+         out = self.DataSize;
+         out(self.ChannelDim) = [];
+      end
+      
+      function out = get.NumDims(self)
+         out = sum(self.Size > 1);
+      end
+      
+      function out = get.NDims(self)
+         funcName  = strcat('csmu.', mfilename, '/get.NDims');
+         L = csmu.Logger(funcName);
+         L.warn('Property `NDims` is deprecated; use `NumDims` instead.');
+         out = self.NumDims;
+      end
+      
       function out = get.NumChannels(self)         
-        if self.HasChannels
-           out = size(self.I, self.ChannelDim);
-        else
-           out = [];
-        end
+         out = self.DataSize(self.ChannelDim);
       end
       
       function out = get.HasChannels(self)
@@ -208,7 +236,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          if isempty(self.ChannelsCache{2}) ...
                || ~isequal(self.ChannelsCache{1}, inputArgs)
             self.ChannelsCache{1} = inputArgs;
-            self.ChannelsCache{2} = self.splitChannels(inputArgs{:});
+            self.ChannelsCache{2} = self.unstackImage(inputArgs{:});
          end
          out = copy(self.ChannelsCache{2});
       end
@@ -221,7 +249,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          if length(varargin) == 1 && iscell(varargin{1})
             varargin = varargin{1};
          end
-         newIm = self.stackChannels(self.ChannelDim, varargin{:});
+         newIm = self.stackImage(self.ChannelDim, varargin{:});
          if ~isempty(self.I) 
             if newIm.Size ~= self.Size
                L.warn('Image dimensions changed when applying channels ', ...
@@ -232,6 +260,18 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
             end
          end
          self.I = newIm.I;            
+      end
+      
+      function out = get.NumTimepoints(self)
+         out = self.DataSize(self.TimepointDim);
+      end
+      
+      function out = get.HasTimepoints(self)
+         out = ~isempty(self.TimepointDim);
+      end
+      
+      function out = get.Timepoints(self)
+         
       end
       
       function out = get.NumElements(self)
@@ -250,6 +290,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
             self.I = reshape(self.I, varargin{:});
          end
       end
+      
    end
    
    methods (Static)
@@ -275,7 +316,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
         projImage = csmu.Image(projImage);
       end
       
-      function channelArray = splitChannels(I, channelDim)
+      function channelArray = unstackImageOld(I, channelDim)
          nChannels = size(I, channelDim);
          dimDist = num2cell(size(I));
          dimDist{channelDim} = ones(1, nChannels);
@@ -288,7 +329,31 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          channelArray.subsasgn(struct('type', '.', 'subs', 'ChannelDim'), []);
       end
       
-      function I = stackChannels(channelDim, varargin)
+      function imageArray = unstackImage(stackDim, stackType, imageData)
+         %   Inputs
+         %      - splitDim: (1, 1) {numeric, integer,  > 0}
+         %      - splitType: {scalarStringLike}
+         %      - imageData: {numeric}
+         %
+         %   Outputs
+         %      - imageArray: (1, :) csmu.Image
+                 
+         oldSize = size(imageData);
+         newSize = oldSize;
+         newSize(stackDim) = [];
+         
+         imageArray = csmu.cat(...
+            1, ...
+            csmu.cellmap(@(im) csmu.Image(reshape(im, newSize)), ...
+            csmu.uncat(stackDim, imageData)));
+         
+         stackType = csmu.ImageStackType(stackType);
+         imageArray.subsasgn(...
+            struct('type', '.', 'subs', stackType.DimLabel), ...
+            []);
+      end                
+      
+      function I = stackImageOld(stackDim, varargin)
          if length(varargin) == 1 && isa(varargin{1}, 'csmu.Image')
             channels = copy(varargin{1});            
          else            
@@ -304,15 +369,17 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          end
          
          originalNumDims = channels(1).NumDims;                  
-         newNumDims = max(originalNumDims + 1, channelDim);                  
+         newNumDims = max(originalNumDims + 1, stackDim);                  
          originalSize = [channels(1).Size, ...
             ones(1, newNumDims - originalNumDims - 1)];
          newSize = ones(1, newNumDims);
-         newSize((1:newNumDims) ~= channelDim) = originalSize;
+         newSize((1:newNumDims) ~= stackDim) = originalSize;
          arrayfun(@(im) im.reshape(newSize), channels);
-         I = csmu.Image.imcat(channelDim, channels);
-         I.ChannelDim = channelDim;
+         I = csmu.Image.imcat(stackDim, channels);
+         I.ChannelDim = stackDim;
       end
+      
+      function I = stackImage(stackDim, stackType
       
       function outputImage = imcat(stackDimension, varargin)
          if length(varargin) == 1 && isa(varargin{1}, 'csmu.Image')

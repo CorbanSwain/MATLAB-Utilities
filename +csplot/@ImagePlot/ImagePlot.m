@@ -22,14 +22,17 @@ classdef ImagePlot < csplot.PlotBuilder
             args = [args, {'XData', self.X, 'YData', self.Y}];
          end
          
+         image = csmu.Image(self.I);
+         imData = image.I;
+         
          if self.DoConvertToRGB && ~isempty(self.Colormap)
-            rgbImage = csplot.gray2rgb(self.I, self.Colormap, ...
+            rgbImage = csplot.gray2rgb(imData, self.Colormap, ...
                'ColorLimits', self.ColorLimits, 'DoScaled', self.DoScaled);
             args = [args, {'CData', rgbImage}];
             self.PlotHandle = image(args{:});
          else
-            if ~isempty(self.I)
-               args = [args, {'CData', self.I}];
+            if ~isempty(imData)
+               args = [args, {'CData', imData}];
             end
             
             if self.DoScaled

@@ -37,6 +37,8 @@ classdef AxisConfiguration < csmu.mixin.DynamicShadow & csmu.mixin.AutoDeal
       end
       
       function apply(self, axisHandle)
+         L = csmu.Logger('csplot.AxisConfiguration/apply');
+         
          self.AxisHandle = axisHandle;
          specialProps = {};
          function addToSpecialProps(prop)
