@@ -379,7 +379,8 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          I.ChannelDim = stackDim;
       end
       
-      function I = stackImage(stackDim, stackType
+      function I = stackImage(stackDim, stackType)
+      end
       
       function outputImage = imcat(stackDimension, varargin)
          if length(varargin) == 1 && isa(varargin{1}, 'csmu.Image')

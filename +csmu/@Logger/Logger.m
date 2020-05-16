@@ -597,19 +597,43 @@ classdef Logger < handle
       end
       
       function logLine(self, lineType)
+         if self.doAutoLineNumber
+            try
+               ME_1 = MException('', '');
+               ME_1.throwAsCaller;
+            catch ME_2
+               try
+                  if strcmpi(ME_2.stack(1).name, 'Logger.logline')
+                     lineNum = ME_2.stack(2).line;
+                  else
+                     lineNum = ME_2.stack(1).line;
+                  end
+               catch
+                  lineNum = [];
+               end
+            end
+         else
+            lineNum = [];
+         end
+         
+         log = @(s) self.log(self.INFO, lineNum,  s);
+         
          if nargin == 1
             lineType = 0;
          end
+         
          switch lineType
             case 1
-               self.info(['\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/', ...
+               log(['\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/', ...
                   ' \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/']);
             case -1
-               self.info(['/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\', ...
+               log(['/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\', ...
                   ' /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\']);
+            case 0
+               log(['|||||||||||||||||||||||||||||||||||||||||||||||||||', ...
+                  '|||||||||||']);
             otherwise
-               self.info(['|||||||||||||||||||||||||||||||||||||||||||||||||||||', ...
-                  '|||||||||']);
+               log(repmat(char(string(lineType)), 1, 62));
          end
       end
       

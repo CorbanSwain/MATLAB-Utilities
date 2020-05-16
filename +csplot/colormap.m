@@ -1,12 +1,13 @@
-function cm = colormap(varargin)
+function [varargout] = colormap(varargin)
 narginchk(1, 2);
 L = csmu.Logger(['csplot.' mfilename]);
 cmapSpec = varargin{end};
 if csmu.validators.stringLike(cmapSpec)
    cmapName = char(lower(cmapSpec));
-   cmapDir = fullfile(csmu.extensionsDir, 'biguri_colormaps');
-   cleanup = onCleanup(@() rmpath(cmapDir));
-   addpath(cmapDir);
+   cmapDirs = {fullfile(csmu.extensionsDir, 'biguri_colormaps'), ...
+      fullfile(csmu.extensionsDir, 'twilight_colormap')};
+   cleanup = onCleanup(@() rmpath(cmapDirs{:}));
+   addpath(cmapDirs{:});
    primaries = {'red', 'green', 'blue'};
    secondaries = {'cyan', 'magenta', 'yellow'};
    switch cmapName
@@ -21,6 +22,14 @@ if csmu.validators.stringLike(cmapSpec)
          
       case {'viridis', 'd'}
          cm = viridis();
+         
+      case {'twilight'}
+         cm = twilight();
+         
+      case {'twilight_shifted'}
+         cm = twilight();
+         cmLength = size(cm, 1);
+         cm = circshift(cm, ceil(cmLength / 2), 1);
          
       case {'grey', 'gray'}
          cm = colormap('gray');
@@ -61,12 +70,19 @@ elseif isnumeric(cmapSpec)
    cmapMatrix = cmapSpec;
    if ~ismatrix(cmapMatrix) || size(cmapMatrix, 2) ~= 3
       L.warn(strcat('Provided numeric colormap does not have typical ', ...
-         'dimensions [%s]'), num2str(size(cmapMatrix)));
+         'dimensions; size is [%s].'), num2str(size(cmapMatrix)));
    end
    cm = cmapMatrix;
 end
 
 if nargin > 1
    colormap(varargin{1}, cm);
+end
+
+if nargout == 0
+   fig = gcf();
+   colormap(fig, cm);
+else
+   varargout = {cm};
 end
 end
