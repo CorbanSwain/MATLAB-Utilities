@@ -5,7 +5,7 @@ ip.addParameter('BackgroundColor', []);
 ip.addParameter('AxesColor', []);
 ip.addParameter('Colormap', 'inferno'); % listable
 ip.addParameter('ColorLimits', []); % listable
-ip.addParameter('DoShowFigure', false);
+ip.addParameter('DoShowFigure', true);
 ip.addParameter('AxesArgs', {});
 ip.addParameter('ScaleBarLength', []);
 ip.addParameter('DoShowAxesArrows', false);
