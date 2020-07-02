@@ -126,6 +126,11 @@ end
 %
 function result = scan_string(r)
     result = char(r);
+    
+    % special syntax for evaluated code (e.g. function handle)
+    if startsWith(result, 'eval<') && endsWith(result, '>')
+       result = eval(result(6:(end - 1)));
+    end
 end
 
 %--------------------------------------------------------------------------
@@ -161,7 +166,15 @@ function result = scan_list(r)
         i = it.next();
         result{ii} = scan(i);
         ii = ii + 1;
-    end;
+    end
+    
+    allNumeric = all(cellfun(@isnumeric, result));
+    if allNumeric
+       result = cell2mat(result);
+       if isvector(result)
+          result = reshape(result, 1, []);
+       end
+    end
 end
 
 %--------------------------------------------------------------------------

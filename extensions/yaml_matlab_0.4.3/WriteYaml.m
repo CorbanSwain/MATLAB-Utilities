@@ -67,6 +67,8 @@ function result = scan(r)
         result = scan_logical(r);
     elseif isa(r,'DateTime')
         result = scan_datetime(r);
+    elseif isa(r, 'function_handle')
+       result = scan_function_handle(r);
     else
         error(['Cannot handle type: ' class(r)]);
     end
@@ -255,6 +257,19 @@ function result = scan_struct(r)
         val = r.(key);
         result.put(key,scan(val));
     end;
+end
+
+
+%--------------------------------------------------------------------------
+%
+%
+function result = scan_function_handle(r)
+    if isempty(r)
+        result = java.util.ArrayList();
+    else
+        result = java.lang.String(...
+           strcat('eval<', char(r), '>'));
+    end
 end
 
 

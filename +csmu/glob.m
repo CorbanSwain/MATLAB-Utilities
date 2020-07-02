@@ -14,7 +14,7 @@ if isempty(fileList)
    return
 end
 nFiles = length(fileList);
-L.info('Found %d matching files in\n   "%s"\n   using format "%s".', nFiles, ...
+L.debug('Found %d matching files in\n   "%s"\n   using format "%s".', nFiles, ...
    strrep(parentDir, '\', '\\'), globFmt);
 fileNames = cell(1, nFiles);
 [fileNames{:}] = fileList.name;
