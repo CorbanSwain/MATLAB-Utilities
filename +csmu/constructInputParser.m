@@ -13,6 +13,9 @@ doKeepUnmatched = ip.DoKeepUnmatched;
 requiredFlags = {'r', 'required', 'addrequired'};
 optionalFlags = {'o', 'optional', 'addoptional'};
 parameterFlags = {'p', 'param', 'parameter', 'addparameter'};
+reqParamFlags = {'rp', 'reqparam', 'addrequiredparameter'};
+
+reqParams = {};
 
 outputInputParser = inputParser();
 outputInputParser.FunctionName = functionName;
@@ -27,6 +30,9 @@ for iSpec = 1:length(parserSpec)
          validatorIdx = 2;
       case [optionalFlags, parameterFlags]
          validatorIdx = 3;
+      case reqParamFlags
+         validatorIdx = 3;
+         reqParams = [reqParams, args(1)];
    end
    if length(args) == validatorIdx
       if csmu.validators.stringLike(args{validatorIdx})
@@ -42,12 +48,28 @@ for iSpec = 1:length(parserSpec)
          outputInputParser.addRequired(args{:});         
       case optionalFlags
          outputInputParser.addOptional(args{:});         
-      case parameterFlags
+      case [parameterFlags, reqParamFlags]
          outputInputParser.addParameter(args{:});
    end
 end
 
 if iscell(inputArgs)
-   outputInputParser.parse(inputArgs{:});
+   try
+      outputInputParser.parse(inputArgs{:});
+   catch ME
+      ME.throwAsCaller();
+   end
+   
+   if ~isempty(reqParams)
+      isMissingReqParam = contains(outputInputParser.UsingDefaults, reqParams);
+      if any(isMissingReqParam)
+         errId = 'csmu:InputParser:MissingParams';
+         errMsg = sprintf(strcat('The following required parameters were', ...
+            ' not provided: ''%s''.'), csmu.cell2csl(join(...
+            outputInputParser.UsingDefaults(isMissingReqParam), ''', ''')));
+         ME = MException(errId, errMsg);
+         ME.throwAsCaller();
+      end
+   end
 end
 end
