@@ -8,7 +8,7 @@ if isempty(parentDir)
 end
 globFmt = strcat(globFmt, globExt);
 if isempty(fileList)
-   L.warn('Matched no files in\n   "%s"\n   using format "%s".',...
+   L.debug('Matched no files in\n   "%s"\n   using format "%s".',...
       strrep(parentDir, '\', '\\'), globFmt);
    outputFilePaths = {};
    return

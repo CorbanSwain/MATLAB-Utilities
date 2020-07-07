@@ -559,16 +559,16 @@ classdef Logger < handle
       function error(self, varargin)
          if isscalar(varargin) && isa(varargin{1}, 'MException')
             self.logException(self.ERROR, varargin{1});
-            varargin{1}.rethrow;
+            varargin{1}.rethrow();
          else
             try
                error(varargin{:});
             catch ME_1
                try
-                  ME_1.throwAsCaller;
+                  ME_1.throwAsCaller();
                catch ME_2
                   self.logException(self.ERROR, ME_2);
-                  ME_2.rethrow;
+                  ME_2.rethrow();
                end
             end
          end
