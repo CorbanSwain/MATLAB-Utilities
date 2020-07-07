@@ -168,8 +168,8 @@ function result = scan_list(r)
         ii = ii + 1;
     end
     
-    allNumeric = all(cellfun(@isnumeric, result));
-    if allNumeric
+    allScalarNumeric = all(cellfun(@csmu.validators.numericScalar, result));
+    if allScalarNumeric
        result = cell2mat(result);
        if isvector(result)
           result = reshape(result, 1, []);
