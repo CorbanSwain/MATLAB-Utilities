@@ -3,7 +3,7 @@ ip = inputParser;
 ip.addParameter('ImageRef', []); % listable
 ip.addParameter('BackgroundColor', []);
 ip.addParameter('AxesColor', []);
-ip.addParameter('Colormap', 'inferno'); % listable
+ip.addParameter('Colormap', 'magma'); % listable
 ip.addParameter('ColorLimits', []); % listable
 ip.addParameter('DoShowFigure', true);
 ip.addParameter('AxesArgs', {});

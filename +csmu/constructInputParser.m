@@ -1,6 +1,7 @@
 function outputInputParser = constructInputParser(parserSpec, varargin)
 ip = inputParser();
-ip.FunctionName = strcat('csmu.', mfilename);
+fcnName = strcat('csmu.', mfilename);
+ip.FunctionName = fcnName;
 ip.addParameter('Name', '', @csmu.validators.scalarStringLike);
 ip.addParameter('Args', [], @iscell);
 ip.addParameter('DoKeepUnmatched', false);
@@ -54,9 +55,11 @@ for iSpec = 1:length(parserSpec)
 end
 
 if iscell(inputArgs)
+   L = csmu.Logger(fcnName);
    try
       outputInputParser.parse(inputArgs{:});
    catch ME
+      L.logException(csmu.LogLevel.ERROR, ME);
       ME.throwAsCaller();
    end
    
@@ -68,6 +71,7 @@ if iscell(inputArgs)
             ' not provided: ''%s''.'), csmu.cell2csl(join(...
             outputInputParser.UsingDefaults(isMissingReqParam), ''', ''')));
          ME = MException(errId, errMsg);
+         L.logException(csmu.LogLevel.ERROR, ME);
          ME.throwAsCaller();
       end
    end
