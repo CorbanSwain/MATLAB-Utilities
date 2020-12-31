@@ -1,4 +1,4 @@
-function B = changeView(A, RA, RB)
+function B = changeView(A, RA, RB, fillValue)
 L = csmu.Logger('csmu.changeView');
 L.assert(all(RA.ImageSize == size(A)), ...
    ['size(A) not equal to RA.ImageSize.\n\tsize(A) = [%s], RA.ImageSize =', ...
@@ -28,7 +28,11 @@ else
       asel = {Aidxstart(1):Aidxend(1), ...
          Aidxstart(2):Aidxend(2), ...
          Aidxstart(3):Aidxend(3)};
-      B = zeros(RB.ImageSize, class(A));
+      if nargin == 4
+         B = ones(RB.ImageSize, class(A)) .* fillValue;
+      else
+         B = zeros(RB.ImageSize, class(A));
+      end
       B(bsel{:}) = A(asel{:});
    else
       prepad = [RA.YWorldLimits(1) - RB.YWorldLimits(1), ...
@@ -48,7 +52,11 @@ else
          Bidxstart(2):Bidxend(2)};
       asel = {Aidxstart(1):Aidxend(1), ...
          Aidxstart(2):Aidxend(2)};
-      B = zeros(RB.ImageSize, class(A));
+      if nargin == 4
+         B = ones(RB.ImageSize, class(A)) .* fillValue;
+      else
+         B = zeros(RB.ImageSize, class(A));
+      end
       B(bsel{:}) = A(asel{:});
    end
 end

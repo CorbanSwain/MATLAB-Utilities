@@ -311,7 +311,10 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
         
         projImage = projFcn(V, projDim, 'ColorWeight', colorWeight);
         if projDim == 1
-           projImage = permute(projImage, [2 1]);
+           originalOrder = 1:ndims(projImage);
+           newOrder = originalOrder;
+           newOrder([1, 2]) = originalOrder([2, 1]);
+           projImage = permute(projImage, newOrder);
         end
         projImage = csmu.Image(projImage);
       end

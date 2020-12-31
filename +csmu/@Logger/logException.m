@@ -1,11 +1,12 @@
 function logException(self, level, ME)
  report = ME.getReport;
- report = strrep(report, self.scriptName, '`**NAME**`');
+ % report = strrep(report, self.scriptName, '`**NAME**`');
+ report = strrep(report, '\', '\\');
 if strlength(ME.identifier)
    msg = sprintf('vv Error ID: %s vv\\n%s', ME.identifier, ...
-      stripFormat(ME.getReport));
+      stripFormat(report));
 else
-   msg = stripFormat(ME.getReport);
+   msg = stripFormat(report);
 end
 
 if self.doAutoLineNumber

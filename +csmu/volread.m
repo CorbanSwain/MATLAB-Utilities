@@ -10,9 +10,11 @@ L = csmu.Logger(funcName);
 ip = inputParser;
 ip.addParameter('Version', 2);
 ip.addParameter('Slice', []);
+ip.addParameter('DoSuppressWarn', true)
 ip.parse(varargin{:});
 processVersion = ip.Results.Version;
 sliceIdx = ip.Results.Slice;
+doSuppressWarn = ip.Results.DoSuppressWarn;
 
 % FIXME - Only TIFF files supported
 % ensure filename ends in '.tif'
@@ -20,7 +22,8 @@ sliceIdx = ip.Results.Slice;
 if ~strcmp(fileext, '.tif') && ~strcmp(fileext, '.tiff')
    filepath = strcat(filepath, '.tif');
 end
-assert(logical(exist(filepath, 'file')));
+L.assert(logical(exist(filepath, 'file')), 'File not found: %s', ...
+   strrep(filepath, '\', '\\'));
 
 switch processVersion
    case 1     
@@ -42,6 +45,10 @@ switch processVersion
       end
 
    case 2      
+      if doSuppressWarn
+         warning('off', 'imageio:tiffmexutils:libtiffWarning');
+      end
+      
       t = Tiff(filepath);
       cleanup = onCleanup(@() close(t));
       sz = [t.getTag('ImageLength'), t.getTag('ImageWidth')];
@@ -58,7 +65,7 @@ switch processVersion
             csmu.ImageDataType.bits2class(nBits));
          V(:, :, :, 1) = t.read();
          for iPage = 2:nPages
-            t.nextDirectory;
+            t.nextDirectory();
             V(:, :, :, iPage) = t.read();
          end         
       else

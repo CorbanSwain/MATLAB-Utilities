@@ -292,12 +292,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     elseif isempty(fig)
         error('No figure found');
     else
-        oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
-        try jf = get(handle(fig),'JavaFrame'); catch, end
-        warning(oldWarn);
-        if isempty(jf)
-            error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
-        end
+%         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+%         try jf = get(handle(fig), 'JavaFrame'); catch, end
+%         warning(oldWarn);
+%         if isempty(jf)
+%             error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
+%         end
     end
 
     % Isolate the subplot, if it is one
