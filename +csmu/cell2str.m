@@ -33,21 +33,8 @@
 
 % AuthorFirst AuthorLast, Year
 
-function Y = functionName(X, varargin)
-%% Meta Setup
-%%% Function Metadata
-fcnName = strcat('', mfilename);
+function S = cell2str(cellObj)
 
-%%% Logging
-L = csmu.Logger(fcnName);
-
-%%% Input Handling
-ip = csmu.InputParser.fromSpec({
-   {'p', 'ParamName', 'defaultVal'}
-   });
-ip.FunctionName = fcnName;
-ip.parse(varargin{:});
-inputs = ip.Results;
-
-%% Evaluation
+S = sprintf('[%s]', ...
+   csmu.cell2csl(join(splitlines(csmu.disps(cellObj)), '; ')));
 end

@@ -7,14 +7,17 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
       FilePath
    end
    
-   properties (Hidden = true, Access = protected)
-      ProjectionFunction
+   properties (Hidden = true, Access = protected)      
       XYProjCache = cell(1, 2)
       XZProjCache = cell(1, 2)
       YZProjCache = cell(1, 2)
       ICache = cell(1, 2)
       ChannelsCache = cell(1, 2)
       SliceIdx
+   end
+   
+   properties (Hidden = true)
+      ProjectionFunction
    end
    
    properties (Dependent)

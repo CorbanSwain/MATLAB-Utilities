@@ -4,7 +4,9 @@ classdef FigureBuilder < csmu.Object
       Number
       Name
       Position
+      PaperSize
       Color
+      Units
       SubplotSize = [1, 1]
       DoUseSubplot = false
       PlotBuilders
@@ -15,8 +17,12 @@ classdef FigureBuilder < csmu.Object
       Legend
    end %properties
    
-   properties (GetAccess = 'private', SetAccess = 'private')
+   properties (GetAccess = 'public', SetAccess = 'private')
       FigureHandle
+   end % private properties
+   
+   properties (GetAccess = 'private', SetAccess = 'private')
+      LinkPropHandles
    end % private properties
    
    methods
@@ -36,18 +42,27 @@ classdef FigureBuilder < csmu.Object
             self.FigureHandle = figure;
          end
          h = self.FigureHandle;
+         self.FigureHandle.UserData.Links = [];
          clf(h);
          if ~isempty(self.Name)
             h.Name = self.Name;
+         end
+         
+         if ~isempty(self.Units)
+            h.Units = self.Units;
          end
          
          if ~isempty(self.Position)
             h.Position = self.Position;
          end
          
+         if ~isempty(self.PaperSize)
+            h.PaperSize = self.PaperSize;
+         end
+         
          if ~isempty(self.Color)
             h.Color = self.Color;
-         end
+         end         
          
          if self.DoUseSubplot
             nSubplots = prod(self.SubplotSize);
@@ -62,7 +77,9 @@ classdef FigureBuilder < csmu.Object
                   'for the number of axis configurations.']);
             end
          else
-            assert(length(self.PlotBuilders) == length(self.AxisConfigs))
+            assert(length(self.PlotBuilders) == length(self.AxisConfigs), ...
+               strcat('The number of PlotBuilder lists does not match the', ...
+               ' number of axis configurations'));
          end
          
          self.AxisHandles = gobjects(1, length(self.PlotBuilders));
@@ -88,7 +105,14 @@ classdef FigureBuilder < csmu.Object
             if isempty(axsIdx)
                axsIdx = 1:length(self.AxisHandles);
             end
-            linkprop(self.AxisHandles(axsIdx), props);
+            lkH = linkprop(self.AxisHandles(axsIdx), props);
+            
+            if isempty(self.FigureHandle.UserData.Links)
+               self.FigureHandle.UserData.Links = lkH;
+            else
+               self.FigureHandle.UserData.Links = ...
+                  [self.FigureHandle.UserData.Links, lkH];
+            end
          end
          
          function test(src, evt, ax)
@@ -139,11 +163,13 @@ classdef FigureBuilder < csmu.Object
       
       function close(self)
          L = csmu.Logger(strcat('csplot.', mfilename, '/close'));
-         if ~isempty(self.FigureHandle)
-            close(self.FigureHandle)
-         else
-            L.warning(['The figure cannot be closed since it has not', ...
-               ' yet ben drawn.']);
+         for iFig = 1:length(self)
+            if ~isempty(self(iFig).FigureHandle)
+               close(self(iFig).FigureHandle)
+            else
+               L.warning(['The figure cannot be closed since it has not', ...
+                  ' yet ben drawn.']);
+            end
          end
       end
       
@@ -212,7 +238,7 @@ classdef FigureBuilder < csmu.Object
             247,129,191
             153,153,153] / 255;
          
-         font = 'Helvetica';
+         font = 'Helvetica LT Pro';
          set(groot, ...           
             'defaultLineLineWidth', 1.5, ...
             'defaultAxesFontSize', fontSize, ...
@@ -221,7 +247,7 @@ classdef FigureBuilder < csmu.Object
             'defaultAxesLabelFontSizeMultiplier', 1.1, ...
             'defaultAxesLineWidth', 2, ...
             'defaultFigureColor', [1 1 1], ...
-            'defaultTextInterpreter', 'tex', ...
+            'defaultTextInterpreter', 'none', ...
             'defaultTextFontSize',fontSize, ...
             'defaultTextFontName', font, ...
             'defaultAxesColorOrder', colorOrder, ...

@@ -33,21 +33,20 @@
 
 % AuthorFirst AuthorLast, Year
 
-function Y = functionName(X, varargin)
+function y = normTimes(x1, x2)
+
 %% Meta Setup
-%%% Function Metadata
-fcnName = strcat('', mfilename);
-
-%%% Logging
-L = csmu.Logger(fcnName);
-
 %%% Input Handling
-ip = csmu.InputParser.fromSpec({
-   {'p', 'ParamName', 'defaultVal'}
-   });
-ip.FunctionName = fcnName;
-ip.parse(varargin{:});
-inputs = ip.Results;
+narginchk(2, 2);
 
-%% Evaluation
+%% Computation
+outputRange = csmu.range([csmu.range(x1, 'all'), csmu.range(x2, 'all')], 'all');
+outputRangeSize = diff(outputRange);
+
+y = times(x1, x2);
+
+tempRange = csmu.range(y, 'all');
+tempRangeSize = diff(tempRange);
+
+y = ((y - tempRange(1)) * (outputRangeSize / tempRangeSize)) + outputRange(1);
 end

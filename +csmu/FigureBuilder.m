@@ -106,8 +106,15 @@ classdef FigureBuilder < handle
       function save(self, varargin)
          if isempty(self.FigureHandle)
             self.figure();
+            doAutoClose = true;
+         else
+            doAutoClose = false;
          end
          self.saveFigure(self.FigureHandle, varargin{:});
+         
+         if doAutoClose
+            self.close();
+         end
       end % function save(self, varargin)
       
       function close(self)
@@ -123,13 +130,16 @@ classdef FigureBuilder < handle
    methods (Static)
       function saveFigure(figureHandle, varargin)
          % saveFigure Saves the passed figure as a 300 dpi png.
+                  
+         ip = csmu.InputParser.fromSpec({
+            {'o', 'FigureDir', 'figures', @isstr}
+            {'p', 'ExportOptions', {'-m1', '-transparent', '-nocrop'}
+            });
+         ip.parse(varargin{:});
+         inputs = ip.Results;                  
          
-         p = inputParser;
-         p.addOptional('figureDir', 'figures', @isstr)
-         p.addParameter('ExportOptions', {'-m1', '-transparent', '-nocrop'});
-         p.parse(varargin{:})
-         figureDir = p.Results.figureDir;
-         exportOptions = p.Results.ExportOptions;
+         figureDir = inputs.figureDir;
+         exportOptions = inputs.ExportOptions;
          
          if ~isfolder(figureDir)
             mkdir(figureDir)
@@ -154,7 +164,7 @@ classdef FigureBuilder < handle
                name = [name, '_', f.Name];
             end
          end
-         filepath = fullfile(figureDir, [name, '.png']);
+         filepath = fullfile(figureDir, strcat(name, '.png'));
          csmu.FigureBuilder.exportFigWrapper(f, filepath, exportOptions{:});
       end % saveFigure()
       

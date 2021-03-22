@@ -15,6 +15,7 @@ ip.addParameter('UnitRatio', 1, @(x) isvector(x) && any(length(x) == [1 3]));
 ip.addParameter('UnitRatioOrdering', csmu.IndexOrdering.XY, ...
    @(x) isa(x, 'csmu.IndexOrdering'))
 ip.addParameter('DarkMode', false);
+ip.addParameter('ProjectionFcn', []);
 ip.addParameter('DoMaskDark', false);
 ip.addParameter('FigureName', '');
 ip.addParameter('UnitName', '');
@@ -23,6 +24,7 @@ ip.addParameter('SaveDirectory', '');
 ip.addParameter('DoCloseFigure', false);
 ip.addParameter('AnnotationText', '');
 ip.parse(varargin{:});
+inputs = ip.Results;
 ip = ip.Results;
 cmapName = ip.Colormap;
 clims = ip.ColorLimits;
@@ -48,6 +50,52 @@ exportOptions = ip.ExportOptions;
 
 L = csmu.Logger(strcat('csplot.quick.', mfilename));
 
+if csmu.validators.stringLike(inputs.ProjectionFcn) ...
+      && strcmpi(inputs.ProjectionFcn, 'both')
+   
+   L.info('Creating projview for both sum and max projections.');
+   inputsSum = inputs;   
+   inputsSum.FigureName = strcat('SUM_', inputs.FigureName);
+   inputsSum.ProjectionFcn = 'sum';
+   fbSum = csplot.quick.(mfilename)(V, inputsSum);
+   
+   inputsMax = inputs;
+   inputsMax.FigureName = strcat('MAX_', inputs.FigureName);
+   inputsMax.ProjectionFcn = 'max';
+   fbMax = csplot.quick.(mfilename)(V, inputsMax);
+   
+   fb = [fbSum, fbMax];
+   return
+else
+   if isa(V, 'csmu.Image') && ~isscalar(V)
+      V = num2cell(V(:));
+   elseif ~iscell(V)
+      V = csmu.tocell(V);
+   end
+   numVolumes = length(V);
+   
+   for iVol = 1:numVolumes
+      V{iVol} = csmu.Image(V{iVol});
+      if ~isempty(inputs.ProjectionFcn)
+         if csmu.validators.stringLike(inputs.ProjectionFcn)
+            switch inputs.ProjectionFcn
+               case 'sum'
+                  V{iVol}.ProjectionFunction = @csmu.sumProject;
+                  
+               case {'max', 'maximum'}
+                  V{iVol}.ProjectionFunction = @csmu.maxProject;
+                  
+               otherwise
+                  L.error('Unexpected char Projection Func. passed ''%s''', ...
+                     inputs.ProjectionFcn);
+            end
+         else
+            V{iVol}.ProjectionFunction = inputs.ProjectionFcn;
+         end
+      end
+   end
+end
+
 if doDarkMode
    if isempty(backgroundColor)
       backgroundColor = ones(1, 3) * 0.05;
@@ -55,17 +103,6 @@ if doDarkMode
    if isempty(axesColor)
       axesColor = ones(1, 3) * 0.75;
    end
-end
-
-if isa(V, 'csmu.Image') && ~isscalar(V)
-   V = num2cell(V(:));
-elseif ~iscell(V)
-   V = csmu.tocell(V);
-end
-numVolumes = length(V);
-
-for iVol = 1:numVolumes
-   V{iVol} = csmu.Image(V{iVol});
 end
 
 if iscell(cmapName)

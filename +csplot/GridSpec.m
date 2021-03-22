@@ -150,7 +150,8 @@ classdef GridSpec < csmu.Object
                
             case '()'
                nSubs = length(s.subs);
-               assert(any(nSubs == [1, 2]));
+               assert(any(nSubs == [1, 2]), strcat('Invalid or empty', ...
+                  ' index passed to GridSpec object.'));
                args = cell(1, 2);
                if nSubs == 1
                   if iscolon(s.subs{1})
@@ -160,8 +161,26 @@ classdef GridSpec < csmu.Object
                      if isscalar(s.subs{1})
                         [args{:}] = ind2sub(self.Size, s.subs{1});
                      else
-                        L.warn('This syntax is not supported.');
-                        [args{:}] = ind2sub(self.Size, s.subs{1});
+                        failMessage = sprintf(...
+                           'Invalid linear vector index ([%s]).', ...
+                           num2str(s.subs{1}));
+                        
+                        [rowSub, colSub] = ind2sub(self.Size, s.subs{1});
+                        if all(rowSub(1) == rowSub, 'all')
+                           L.assert(...
+                              all(colSub(1):colSub(end) == colSub), ...
+                              failMessage);
+                           args{1} = rowSub(1);
+                           args{2} = colSub(1):colSub(end);
+                        elseif all(colSub(1) == colSub, 'all')
+                           L.assert(...
+                              all(rowSub(1):rowSub(end) == rowSub), ...
+                              failMessage);
+                           args{1} = rowSub(1):rowSub(end);
+                           args{2} = colSub(1);
+                        else
+                           L.error(failMessage);
+                        end
                      end
                   end
                else

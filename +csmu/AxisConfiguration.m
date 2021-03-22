@@ -85,15 +85,20 @@ classdef AxisConfiguration < csmu.DynamicShadowOld
             end
          end
          
-         isYYPropFun = @(name, val) startsWith(name, 'Y') && ((iscell(val) ...
+         isYYPropFun = @(name, val) startsWith(name, 'Y')...
+            && ((iscell(val) ...
             && length(val) == 2 && ~endsWith(name, 'TickLabel')) ...
             || (iscell(val) && iscell(val{1}) && endsWith(name, 'TickLabel')));
+         
          axisProps = self.AllDynamicShadowPropNames;
          for iProp = 1:length(axisProps)
             propName = axisProps{iProp};
             propVal = self.(propName);
             isYYProp = isYYPropFun(propName, propVal);
-            if ~isempty(propVal) && ~any(strcmpi(propName, specialProps))
+            
+            isPropUnset = isempty(propVal) && isa(propVal, 'double');
+            
+            if ~isPropUnset && ~any(strcmpi(propName, specialProps))
                if ~isYYProp
                   if ~any(strcmpi(propName, {'xlabel', 'ylabel', 'zlabel'}))
                      axisHandle.(propName) = propVal;
@@ -121,7 +126,6 @@ classdef AxisConfiguration < csmu.DynamicShadowOld
                      axisHandle.(propName).Strin = propVal{2};
                      yyaxis(axisHandle, 'left');
                   end
-
                end
             end
          end

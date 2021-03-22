@@ -97,7 +97,10 @@ classdef AxisConfiguration < csmu.mixin.DynamicShadow & csmu.mixin.AutoDeal
             propName = axisProps{iProp};
             propVal = self.(propName);
             isYYProp = isYYPropFun(propName, propVal);
-            if ~isempty(propVal) && ~any(strcmpi(propName, specialProps))
+            
+            isPropUnset = isempty(propVal) && isa(propVal, 'double');
+            
+            if ~isPropUnset && ~any(strcmpi(propName, specialProps))
                if ~isYYProp
                   if ~any(strcmpi(propName, {'xlabel', 'ylabel', 'zlabel'}))
                      axisHandle.(propName) = propVal;

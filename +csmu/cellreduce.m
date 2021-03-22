@@ -8,7 +8,7 @@ if length(varargin) == 1
       output = [];
       return;
    else
-      output = varargin{1}{1};
+      initialInput = varargin{1}{1};
       argsArray = varargin{1}(2:end);
    end
 else
@@ -25,11 +25,12 @@ else
       end
       throw(ME);
    end
-   output = varargin{end};
+   initialInput = varargin{end};
 end
 
 
 %% Computation
+output = initialInput;
 for args = argsArray
    output = reduceFcn(output, args{:});
 end

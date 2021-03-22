@@ -11,7 +11,7 @@ classdef BoxPlot < csplot.PlotBuilder
       DoShowPoints (1, 1) logical = false
       PointsMinBinSize
       PointsMaxSpread = 0.75
-      PointsPlotBuilder csplot.LinePlot
+      PointsPlotBuilder (1, 1) csplot.ScatterPlot
       DoLabelPoints
       DoShowOutlier
       DefaultColor
@@ -40,13 +40,26 @@ classdef BoxPlot < csplot.PlotBuilder
       end
       
       function plotPoints(self, axisHandle)
-         if isvector(self.X)
-            vals = self.X(:);
+         if isempty(self.Groups)
+            if isvector(self.X)
+               vals = self.X(:);
+            else
+               vals = self.X;
+            end            
+            nGroups = size(vals, 2);
+            doUseGroups = false;
          else
-            vals = self.X;
+            if iscategorical(self.Groups)
+               vals = self.X;
+               groups = categories(self.Groups);
+               nGroups = numel(groups);
+               doUseGroups = true;
+            else
+               error('Unexpected value for self.Groups');
+            end
          end
-         
-         nGroups = size(vals, 2);
+            
+            
          deoverlapArgs = {};
          if ~isempty(self.PointsMinBinSize)
             deoverlapArgs = {'MinBinSize', self.PointsMinBinSize};
@@ -58,7 +71,7 @@ classdef BoxPlot < csplot.PlotBuilder
          
          scatterPlot = copy(self.PointsPlotBuilder);         
          if isempty(scatterPlot)
-            scatterPlot = csplot.ScatterPlot;
+            scatterPlot = csplot.ScatterPlot();
          end
          
          if isempty(scatterPlot.Marker)
@@ -98,8 +111,13 @@ classdef BoxPlot < csplot.PlotBuilder
          end
          
          for iGroup = 1:nGroups
+            if doUseGroups
+               inputVals = vals(self.Groups == groups(iGroup));
+            else
+               inputVals = vals(:, iGroup);
+            end
             iScatterPlot = copy(scatterPlot);
-            [y, x, I] = csmu.deoverlapVals(vals(:, iGroup), deoverlapArgs{:});
+            [y, x, I] = csmu.deoverlapVals(inputVals, deoverlapArgs{:});
             x = x + iGroup;
             if self.DoLabelPoints
                texts = cell(1, length(I));

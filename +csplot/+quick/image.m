@@ -69,7 +69,7 @@ ax.XAxis.Visible = 'off';
 ax.YAxis.Visible = 'off';
 ax.XLim = [1, I.Size(2)] + [-0.5, +0.5];
 ax.YLim = [1, I.Size(1)] + [-0.5, +0.5];
-ax.PBAspect = [1, 1, 1];
+ax.DataAspectRatio = [1, 1, 1];
 
 fig = csplot.FigureBuilder();
 fig.AxisConfigs = [ax];

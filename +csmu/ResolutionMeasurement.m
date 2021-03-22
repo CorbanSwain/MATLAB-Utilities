@@ -3,7 +3,7 @@ classdef ResolutionMeasurement < csmu.Object
       ImageRef csmu.ImageRef
       Position
       IntensityLines
-      PeakValid
+      PeakValid = [false, false, false]
       PeakPosition
       PeakEdgeValue
       PeakProminance
@@ -304,6 +304,10 @@ classdef ResolutionMeasurement < csmu.Object
          ip.addParameter('Colormap', 'magma');
          ip.addParameter('DoDarkMode', false);
          ip.addParameter('FontName', 'Helvetica');
+         ip.addParameter('VoxelResolution', 0.5);
+         ip.addParameter('DoShowSampleAxis', true);
+         ip.addParameter('DoShowAxisLabels', true);
+         ip.addParameter('PlotLayout', 1);
          ip.parse(varargin{:});
          V = ip.Results.Image;
          inputs = ip.Results;
@@ -317,6 +321,7 @@ classdef ResolutionMeasurement < csmu.Object
          defaultViewWidth = 250;
          lightGrey = ones(1, 3) * 225 / 255;
          darkGrey = ones(1, 3) * 25 / 255;
+         muChar = sprintf('\x00B5');
          
          %% Assigning variables ...
          %%% ... from ResMeasure object
@@ -338,9 +343,11 @@ classdef ResolutionMeasurement < csmu.Object
          if isempty(viewWidth)
             viewWidth = min(defaultViewWidth, max(volSize));
          end
-         xlim = point(1) + ([-1 1] * viewWidth / 2);
-         ylim = point(2) + ([-1 1] * viewWidth / 2);
-         zlim = point(3) + ([-1 1] * viewWidth / 2);
+         halfViewWidth = viewWidth / 2;
+         windowVector = [-1 1] * halfViewWidth;
+         xlim = point(1) + windowVector;
+         ylim = point(2) + windowVector;
+         zlim = point(3) + windowVector;
          
          %%% Window Selections
          xWindowSel = max(round(xlim(1)), 1):min(round(xlim(2)), volSize(2));
@@ -389,351 +396,689 @@ classdef ResolutionMeasurement < csmu.Object
          
          %%% Window Scale
          xyWindowed = xy(xyWindow{:});
-         xyScale = csmu.range(xyWindowed);
+         xyScale = csmu.range(xyWindowed, 'all');
          
          xzWindowed = xz(xzWindow{:});
-         xzScale = csmu.range(xzWindowed);
+         xzScale = csmu.range(xzWindowed, 'all');
          
          yzWindowed = yz(yzWindow{:});
-         yzScale = csmu.range(yzWindowed);
+         yzScale = csmu.range(yzWindowed, 'all');
          
          allScale = csmu.range(cat(2, xyScale, xzScale, yzScale));
+         defaultRange = [0, allScale(2)];
          
-         %%% Intensity Lines
+         %%% Plot Component and Property Computations
          displayRangeExpansionFactor = 0.02;         
          
          annotationArrowLength = viewWidth * 0.11;          
-         annotationGap = annotationArrowLength * 0.08;  
+         annotationGap = annotationArrowLength * 0.22;  
          arrowVector = [annotationArrowLength, 0];
+         annotationFmt = sprintf('%%.1f %sm', muChar);
+         verboseAnnotationFmt = sprintf('FWHM, %%s = %%.2f %sm', muChar);
          
-         voxelResolution = 0.5 * ones(1, 3);
+         voxelResolution = inputs.VoxelResolution .* ones(1, 3);
          
          dref = displayRangeExpansionFactor;
          ag = annotationGap;         
          av = arrowVector;
          
          xDomain = 1:length(xLine);
-         xRange = xLine;
+         xRange = xLine;                  
          xPeakDomain = xLoc;
          xPeakRange = xPeak;
          xWidth_um = xWidth * voxelResolution(1);
-         xDisplayRange = csmu.expandRange([background, xPeak], dref);
+         if self.PeakValid(1)
+            xLabelRange = [...
+               background, ...
+               max(xPeak, background + eps(background))];            
+         else
+            xLabelRange = defaultRange;
+         end
+         xDisplayRange = csmu.expandRange(xLabelRange, dref);
          
          xLeftAnnotationDomain = xEdges(1) - ag - av;
          xRightAnnotationDomain = xEdges(2) + ag + av;
+         if any(xLeftAnnotationDomain < xlim(1)) ...
+               || any(xRightAnnotationDomain > xlim(2))
+            
+            tempHead = max(xlim(1), xEdges(1));
+            xLeftAnnotationDomain = tempHead + ag + av;            
+            tempHead = min(xlim(2), xEdges(2));
+            xRightAnnotationDomain = tempHead - ag - av;            
+            xArrowAnnotationLayout = 'inner';
+         else
+            xArrowAnnotationLayout = 'outer';
+         end
          xAnnotationRange = xHalfMaxes * ones(1, 2);
+         xAnnotation = sprintf(annotationFmt, xWidth_um);
+         xAnnotationVerbose = sprintf(verboseAnnotationFmt, 'X', xWidth_um);
          
          yDomain = 1:length(yLine);
          yRange = yLine;
          yPeakDomain = yLoc;
          yPeakRange = yPeak;
          yWidth_um = yWidth * voxelResolution(2);
-         yDisplayRange = csmu.expandRange([background, yPeak], dref);
+         if self.PeakValid(2)
+            yLabelRange = [...
+               background, ...
+               max(yPeak, background + eps(background))];
+         else
+            yLabelRange = defaultRange;
+         end
+         yDisplayRange = csmu.expandRange(yLabelRange, dref);
          
          yLeftAnnotationDomain = yEdges(1) - ag - av;
          yRightAnnotationDomain = yEdges(2) + ag + av;
+         if any(yLeftAnnotationDomain < ylim(1)) ...
+               || any(yRightAnnotationDomain > ylim(2))
+            
+            tempHead = max(ylim(1), yEdges(1));
+            yLeftAnnotationDomain = tempHead + ag + av;
+            tempHead = min(ylim(2), yEdges(2));
+            yRightAnnotationDomain = tempHead - ag - av;
+            
+            yArrowAnnotationLayout = 'inner';
+         else
+            yArrowAnnotationLayout = 'outer';
+         end
          yAnnotationRange = yHalfMaxes * ones(1, 2);
+         yAnnotation = sprintf(annotationFmt, yWidth_um);
+         yAnnotationVerbose = sprintf(verboseAnnotationFmt, 'Y', yWidth_um);
          
          zDomain = 1:length(zLine);
          zRange = zLine;
          zPeakDomain = zLoc;
          zPeakRange = zPeak;
          zWidth_um = zWidth * voxelResolution(3);
-         zDisplayRange = csmu.expandRange([background, zPeak], dref);
+         if self.PeakValid(3)
+            zLabelRange = [...
+               background, ...
+               max(zPeak, background + eps(background))];
+         else
+            zLabelRange = defaultRange;
+         end
+         zDisplayRange = csmu.expandRange(zLabelRange, dref);
          
          zLeftAnnotationDomain = zEdges(1) - ag - av;
          zRightAnnotationDomain = zEdges(2) + ag + av;
+         if any(zLeftAnnotationDomain < zlim(1)) ...
+               || any(zRightAnnotationDomain > zlim(2))
+            
+            tempHead = max(zlim(1), zEdges(1));
+            zLeftAnnotationDomain = tempHead + ag + av;
+            tempHead = min(zlim(2), zEdges(2));
+            zRightAnnotationDomain = tempHead - ag - av;
+            
+            zArrowAnnotationLayout = 'inner';
+         else
+            zArrowAnnotationLayout = 'outer';
+         end  
          zAnnotationRange = zHalfMaxes * ones(1, 2);
+         zAnnotation = sprintf(annotationFmt, zWidth_um);
+         zAnnotationVerbose = sprintf(verboseAnnotationFmt, 'Z', zWidth_um);
          
          xy_x_WindowLine = [
             0.5,              point(2)
-            0.5 + volSize(2), point(2)];
-         
+            0.5 + volSize(2), point(2)];         
          xy_y_WindowLine = [
             point(1),         0.5
             point(1),         0.5 + volSize(1)];
          
          xz_x_WindowLine = [
             0.5,              point(3)
-            0.5 + volSize(2), point(3)];
-         
+            0.5 + volSize(2), point(3)];         
          xz_z_WindowLine = [
             point(1),         0.5
             point(1),         0.5 + volSize(3)];
          
          yz_y_WindowLine = [
             0.5,              point(3)
-            0.5 + volSize(1), point(3)];
-         
+            0.5 + volSize(1), point(3)];         
          yz_z_WindowLine = [
             point(2),         0.5
             point(2),         0.5 + volSize(3)];
-         %% Plotting
-         L.info('\tGenerating Plot');
-         csmu.FigureBuilder.setDefaults;
-         imPlots = csmu.plotBuilders(1, 2);
-         imPlots(1) = csmu.ImagePlot;
-         imPlots(1).Colormap = cmap;
-         for iPlot = 2:length(imPlots)
-            imPlots(iPlot) = copy(imPlots(1));
-         end
-         imPlots(1).I = xz;
-         imPlots(1).ColorLimits = allScale;
-         imPlots(2).I = yz;
-         imPlots(2).ColorLimits = allScale;
+                  
          
-         linePlots = csmu.plotBuilders(1, 3);
-         linePlots(1) = csmu.LinePlot;
-         linePlots(1).LineSpec = {'-'};
+         %% Plotting 
+         %%% Colors         
          if inputs.DoDarkMode
-            linePlots(1).Color = lightGrey;
+            foregroundColor = lightGrey;
+            backgroundColor = darkGrey;
+            peakMarkerColor = [1, 0.25, 0.25];
          else
-            linePlots(1).Color = 'k';
-         end
-         linePlots(1).LineWidth = 3.5;
-         for iPlot = 2:length(linePlots)
-            linePlots(iPlot) = copy(linePlots(1));
-         end
-         linePlots(1).X = xDomain;
-         linePlots(1).Y = xRange;
-         linePlots(2).X = yDomain;
-         linePlots(2).Y = yRange;
-         linePlots(3).X = zRange;
-         linePlots(3).Y = zDomain;
-         
-         imLinePlots = csmu.plotBuilders(1, 4);
-         imLinePlots(1) = csmu.LinePlot;
-         imLinePlots(1).LineSpec = {':'};
-         imLinePlots(1).Color = [lightGrey, 0.5];
-         imLinePlots(1).LineWidth = 1.5;
-         for iPlot = 2:length(imLinePlots)
-            imLinePlots(iPlot) = copy(imLinePlots(1));
-         end
-         imLinePlots(1).X = xz_x_WindowLine(:, 1);
-         imLinePlots(1).Y = xz_x_WindowLine(:, 2);
-         imLinePlots(2).X = xz_z_WindowLine(:, 1);
-         imLinePlots(2).Y = xz_z_WindowLine(:, 2);
-         imLinePlots(3).X = yz_y_WindowLine(:, 1);
-         imLinePlots(3).Y = yz_y_WindowLine(:, 2);
-         imLinePlots(4).X = yz_z_WindowLine(:, 1);
-         imLinePlots(4).Y = yz_z_WindowLine(:, 2);
-         
-         pointPlots = csmu.plotBuilders(1, 3);
-         pointPlots(1) = csmu.ScatterPlot;
-         pointPlots(1).Marker = 'v';
-         pointPlots(1).MarkerEdgeColor = 'none';
-         pointPlots(1).MarkerFaceColor = 'r';
-         pointPlots(1).LineWidth = 1.5;
-         for iPlot = 2:length(pointPlots)
-            pointPlots(iPlot) = copy(pointPlots(1));
-         end
-         pointPlots(1).X = xPeakDomain;
-         pointPlots(1).Y = xPeakRange;
-         pointPlots(2).X = yPeakDomain;
-         pointPlots(2).Y = yPeakRange;
-         pointPlots(3).Marker = '>';
-         pointPlots(3).X = zPeakRange;
-         pointPlots(3).Y = zPeakDomain;
-         for iPlot = 1:length(pointPlots)
-            if ~inputs.DoShowPeakMarker
-               pointPlots(iPlot).Visible = 'off';
-            end
+            foregroundColor = 'k';
+            backgroundColor = 'w';
+            peakMarkerColor = 'r';
          end
          
-         texts = csmu.plotBuilders(1, 4);
-         texts(1) = csmu.TextPlot;
-         texts(1).Position = [0 1];
-         texts(1).Units = 'normalized';
-         texts(1).FontName = inputs.FontName;
-         texts(1).FontSize = 12 ;
-         texts(1).VerticalAlignment = 'top';
-         if inputs.DoDarkMode
-            texts(1).Color = lightGrey;
+         %%% Plot Templates
+         imPlotTemplate = csmu.ImagePlot();
+         imPlotTemplate.Colormap = cmap;
+         imPlotTemplate.ColorLimits = allScale;
+         
+         linePlotTemplate = csmu.LinePlot();
+         linePlotTemplate.LineSpec = {'-'};
+         linePlotTemplate.Color = foregroundColor;
+         linePlotTemplate.LineWidth = 3.5;
+         
+         windowLinePlotTemplate = csmu.LinePlot();
+         windowLinePlotTemplate.LineSpec = {':'};
+         windowLinePlotTemplate.Color = [lightGrey, 0.5];
+         windowLinePlotTemplate.LineWidth = 1.5;         
+         
+         peakPointPlotTemplate = csmu.ScatterPlot();
+         peakPointPlotTemplate.MarkerEdgeColor = 'none';
+         peakPointPlotTemplate.MarkerFaceColor = peakMarkerColor;
+         peakPointPlotTemplate.LineWidth = 1.5;
+         if inputs.DoShowPeakMarker
+            peakPointPlotTemplate.Visible = 'on';
          else
-            texts(1).Color = 'k';
+            peakPointPlotTemplate.Visible = 'off';
          end
-         for iPlot = 2:length(texts)
-            texts(iPlot) = copy(texts(1));
+         peakPointMarker = struct(...
+            'above', 'v', ...
+            'left', '>', ...
+            'right', '<', ...
+            'below', '^');
+         
+         textAnnotationTemplate = csmu.TextPlot();
+         textAnnotationTemplate.Position = [0 1];
+         textAnnotationTemplate.Units = 'normalized';
+         textAnnotationTemplate.FontName = inputs.FontName;
+         textAnnotationTemplate.FontSize = 12;
+         textAnnotationTemplate.VerticalAlignment = 'top';
+         textAnnotationTemplate.Color = foregroundColor;       
+         if inputs.DoShowMeasurementText
+            textAnnotationTemplate.Visible = 'on';
+         else
+            textAnnotationTemplate.Visible = 'off';
          end
-         texts(1).Text = sprintf('FWHM, X = %.2f um', xWidth_um);
-         texts(2).Text = sprintf('FWHM, Y = %.2f um', yWidth_um);
-         texts(3).Text = sprintf('FWHM, Z\n  = %.2f um', zWidth_um);
-         for iText = 1:3
-            if ~inputs.DoShowMeasurementText
-               texts(iText).Visible = 'off';               
-            end            
-         end
-         texts(4).Interpreter = 'none';
-         texts(4).FontSize = 9;
-         texts(4).Text = annotationText;
+         
+         longTextAnnotationTemplate = copy(textAnnotationTemplate);
+         longTextAnnotationTemplate.Interpreter = 'none';
+         longTextAnnotationTemplate.FontSize = 9;
          if isempty(annotationText)
-            texts(4).Visible = 'off';
-         end
-         
-         gs = csmu.GridSpec(3, 5);
-         gs.VSpace = 0.3;
-         gs.HSpace = 0.3;
-         axisConfigs(1, 6) = csmu.AxisConfiguration;
-         axisConfigs(1).TickDir = 'out';
-         axisConfigs(1).Color = 'none';
-         if inputs.DoDarkMode
-            axisConfigs(1).XColor = lightGrey;
-            axisConfigs(1).YColor = lightGrey;
+            longTextAnnotationTemplate.Visible = 'off';
          else
-            axisConfigs(1).XColor = 'k';
-            axisConfigs(1).YColor = 'k';
+            longTextAnnotationTemplate.Visible = 'on';
          end
          
-         axisConfigs(1).XLabel.FontName = inputs.FontName;
-         axisConfigs(1).YLabel.FontName = inputs.FontName;
-         axisConfigs(1).FontSize = 25;
-         axisConfigs(1).LabelFontSizeMultiplier = 1;
-         axisConfigs(1).Visible = 'on';
-         axisConfigs(1).LineWidth = 1;
-         for iAc = 2:length(axisConfigs)
-            axisConfigs(iAc) = copy(axisConfigs(1));
-         end
+         arrowAnnotationTemplate = csmu.AnnotationPlot();
+         arrowAnnotationTemplate.TextArrowFontName = inputs.FontName;
+         arrowAnnotationTemplate.TextArrowFontSize = 24;
+         arrowAnnotationTemplate.LineType = 'textarrow';
+         arrowAnnotationTemplate.TextArrowTextMargin = 15;
+         arrowAnnotationTemplate.TextArrowHeadStyle = 'vback2';
+         arrowAnnotationTemplate.Color = foregroundColor;
          
-         if doShowHeightAxis
-            axisConfigs(1).YTick = [0 ceil(max(xLine))];
-            axisConfigs(2).YTick = [0 ceil(max(yLine))];
-            axisConfigs(1).YAxisLocation = 'right';
-            axisConfigs(2).YAxisLocation = 'right';
-            axisConfigs(3).XTick = [0 ceil(max(zLine))];
-         else
-            axisConfigs(1).YAxis.Visible = 'off';
-            axisConfigs(2).YAxis.Visible = 'off';
-            axisConfigs(3).XAxis.Visible = 'off';
-         end
-         
-         axisConfigs(1).Position = gs(1, 2:3);
-         axisConfigs(1).XLim = xlim;
-         axisConfigs(1).XLabel.String = 'X';
-         axisConfigs(1).XLabel.VerticalAlignment = 'top';         
-         axisConfigs(1).YLim = xDisplayRange;
-         
-         axisConfigs(2).Position = gs(1, 4:5);
-         axisConfigs(2).XLim = ylim;
-         axisConfigs(2).XLabel.String = 'Y';
-         axisConfigs(2).XLabel.VerticalAlignment = 'top';
-         axisConfigs(2).YLim = yDisplayRange;
-         
-         axisConfigs(3).Position = gs(2:3, 1);
-         axisConfigs(3).YAxis.Visible = 'on';
-         axisConfigs(3).YAxisLocation = 'right';
-         axisConfigs(3).XDir = 'reverse';
-         axisConfigs(3).YLim = zlim;
-         axisConfigs(3).XLim = zDisplayRange;
-         axisConfigs(3).YLabel.String = 'Z';
-         axisConfigs(3).YLabel.Rotation = 0;
-         axisConfigs(3).YLabel.VerticalAlignment = 'middle';
-         axisConfigs(3).YLabel.HorizontalAlignment = 'center';
-         
-         % axisConfigs(3).YLabel = '';
-         axisConfigs(3).YTick = axisConfigs(3).YLim;
-         axisConfigs(3).YTickLabel = {'', ''};
-         for iAc = 1:2
-            % axisConfigs(iAc).XLabel = '';
-            axisConfigs(iAc).XTick = axisConfigs(iAc).XLim;
-            axisConfigs(iAc).XTickLabel = {'', ''};
-         end
-         
-         for iAc = 4:6
-            axisConfigs(iAc).Visible = 'off';
-         end
-         axisConfigs(4).Position = gs(2:3, 2:3);
-         axisConfigs(4).XLim = xlim;
-         axisConfigs(4).YLim = zlim;
-         axisConfigs(5).Position = gs(2:3, 4:5);
-         axisConfigs(5).XLim = ylim;
-         axisConfigs(5).YLim = zlim;
-         axisConfigs(6).Position = gs(1, 1);
-         
-         %%% Annotations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-         aPlots = csmu.plotBuilders(1, 6);
-         for iPlot = 1:6
-            aPlots(iPlot) = csmu.AnnotationPlot();
-            aPlots(iPlot).TextArrowFontName = inputs.FontName;
-            aPlots(iPlot).TextArrowFontSize = 40;
-            aPlots(iPlot).LineType = 'textarrow';
-            if inputs.DoDarkMode
-               aPlots(iPlot).Color = lightGrey;
-            else
-               aPlots(iPlot).Color = 'k';
-            end
-            aPlots(iPlot).TextArrowTextMargin = 15;
-            aPlots(iPlot).TextArrowHeadStyle = 'vback2';
-         end
-         
-         arrowLength = viewWidth * 0.11;
-         gap = arrowLength * 0.08;
-         
-         % x left
-         aPlots(1).X = xLeftAnnotationDomain;
-         aPlots(1).Y = xAnnotationRange;
-         aPlots(1).TextArrowString = sprintf('%.1f \x00B5m ', xWidth / 2);
-         aPlots(1).TextArrowHorizontalAlignment = 'right';
-         aPlots(1).TextArrowVerticalAlignment = 'middle';
-         
-         % x right
-         aPlots(2).X = xRightAnnotationDomain;
-         aPlots(2).Y = xAnnotationRange;
-         
-         % y left
-         aPlots(3).X = yLeftAnnotationDomain;
-         aPlots(3).Y = yAnnotationRange;
-         aPlots(3).TextArrowString = sprintf('%.1f \x00B5m ', yWidth / 2);
-         aPlots(3).TextArrowHorizontalAlignment = 'right';
-         aPlots(3).TextArrowVerticalAlignment = 'middle';
-         
-         % y right
-         aPlots(4).X = yRightAnnotationDomain;
-         aPlots(4).Y = yAnnotationRange;
-         
-         
-         % z left
-         aPlots(5).Y = zLeftAnnotationDomain;
-         aPlots(5).X = zAnnotationRange;
-         
-         % z right
-         aPlots(6).Y = zRightAnnotationDomain;
-         aPlots(6).X = zAnnotationRange;
-         aPlots(6).TextArrowString = sprintf('%.1f \x00B5m ', zWidth / 2);
-         aPlots(6).TextArrowHorizontalAlignment = 'left';
-         aPlots(6).TextArrowVerticalAlignment = 'bottom';
-         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-         
-         subplotStacks = cell(1, 3);
-         for iPeak = 1:3
-            subplotStacks{iPeak} = linePlots(iPeak);
-            if self.PeakValid(iPeak)
-               aPlotIdxs = (1:2) + ((iPeak - 1) * 2);               
-               
-               subplotStacks{iPeak} = [
-                  subplotStacks{iPeak}, ...
-                  pointPlots(iPeak), ...
-                  texts(iPeak), ...
-                  aPlots(aPlotIdxs)];
-            end
-         end         
-         
-         fb = csmu.FigureBuilder;
-         if inputs.DoDarkMode
-            fb.Color = darkGrey;
-         else
-            fb.Color = 'w';
-         end
+         axisTemplate = csmu.AxisConfiguration();
+         axisTemplate.TickDir = 'out';
+         axisTemplate.Color = 'none';
+         axisTemplate.XColor = foregroundColor;
+         axisTemplate.YColor = foregroundColor;
+         axisTemplate.XLabel.FontName = inputs.FontName;
+         axisTemplate.YLabel.FontName = inputs.FontName;
+         axisTemplate.FontSize = 25;
+         axisTemplate.LabelFontSizeMultiplier = 1;
+         axisTemplate.Visible = 'on';
+         axisTemplate.LineWidth = 1;
+                  
+         fb = csmu.FigureBuilder();
+         fb.Color = backgroundColor;
          fb.DoUseSubplot = false;
-         fb.PlotBuilders = [...
-            subplotStacks, ...
-            {[imPlots(1), imLinePlots(1:2)], ...
-            [imPlots(2), imLinePlots(3:4)], ...
-            texts(4)}];
-         fb.AxisConfigs = axisConfigs;
-         figHeight = 800;
-         fb.Position = [908, 250, (gs.FigureAspectRatio * figHeight), ...
-            figHeight];
-         fb.LinkAxes = {[1 4], 'x'; [2 5], 'x'; [3 4 5], 'y'};
+         
+         L.info('\tGenerating Plot');
+         csmu.FigureBuilder.setDefaults();
+         
+         switch inputs.PlotLayout            
+            case 1
+               %%% Generation of Plot Objects
+               imPlots = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(imPlots)
+                  imPlots(iPlot) = copy(imPlotTemplate);
+               end
+               imPlots(1).I = xz;
+               imPlots(2).I = yz;
+               
+               linePlots = csmu.plotBuilders(1, 3);
+               for iPlot = 1:length(linePlots)
+                  linePlots(iPlot) = copy(linePlotTemplate);
+               end
+               linePlots(1).X = xDomain;
+               linePlots(1).Y = xRange;
+               linePlots(2).X = yDomain;
+               linePlots(2).Y = yRange;
+               linePlots(3).X = zRange;
+               linePlots(3).Y = zDomain;
+               
+               windowLinePlots = csmu.plotBuilders(1, 4);
+               for iPlot = 1:length(windowLinePlots)
+                  windowLinePlots(iPlot) = copy(windowLinePlotTemplate);
+               end
+               windowLinePlots(1).X = xz_x_WindowLine(:, 1);
+               windowLinePlots(1).Y = xz_x_WindowLine(:, 2);
+               windowLinePlots(2).X = xz_z_WindowLine(:, 1);
+               windowLinePlots(2).Y = xz_z_WindowLine(:, 2);
+               windowLinePlots(3).X = yz_y_WindowLine(:, 1);
+               windowLinePlots(3).Y = yz_y_WindowLine(:, 2);
+               windowLinePlots(4).X = yz_z_WindowLine(:, 1);
+               windowLinePlots(4).Y = yz_z_WindowLine(:, 2);
+               
+               peakPointPlots = csmu.plotBuilders(1, 3);
+               for iPlot = 1:length(peakPointPlots)
+                  peakPointPlots(iPlot) = copy(peakPointPlotTemplate);
+               end
+               peakPointPlots(1).Marker = peakPointMarker.above;
+               peakPointPlots(1).X = xPeakDomain;
+               peakPointPlots(1).Y = xPeakRange;
+               peakPointPlots(2).Marker = peakPointMarker.above;
+               peakPointPlots(2).X = yPeakDomain;
+               peakPointPlots(2).Y = yPeakRange;
+               peakPointPlots(3).Marker = peakPointMarker.left;
+               peakPointPlots(3).X = zPeakRange;
+               peakPointPlots(3).Y = zPeakDomain;
+               
+               %%% Text Annotations
+               textAnnotations = csmu.plotBuilders(1, 4);
+               for iPlot = 1:3
+                  textAnnotations(iPlot) = copy(textAnnotationTemplate);
+               end
+               textAnnotations(1).Text = xAnnotationVerbose;
+               textAnnotations(2).Text = yAnnotationVerbose;
+               textAnnotations(3).Text = zAnnotationVerbose;
+               
+               textAnnotations(4) = copy(longTextAnnotationTemplate);
+               textAnnotations(4).Text = annotationText;
+               
+               %%% Arrow Annotations
+               aPlots = csmu.plotBuilders(1, 6);
+               for iPlot = 1:6
+                  aPlots(iPlot) = copy(arrowAnnotationTemplate);
+               end
+               
+               % x left
+               aPlots(1).X = xLeftAnnotationDomain;
+               aPlots(1).Y = xAnnotationRange;
+               aPlots(1).TextArrowString = strcat(xAnnotation, ' ');
+               aPlots(1).TextArrowVerticalAlignment = 'middle';
+               switch xArrowAnnotationLayout
+                  case 'inner'
+                     aPlots(1).TextArrowHorizontalAlignment = 'left';
+                     
+                  case 'outer'
+                     aPlots(1).TextArrowHorizontalAlignment = 'right';
+                                          
+                  otherwise
+                     L.error('Unexpected xArrowAnnotationLayout spec: %s', ...
+                        xArrowAnnotationLayout);
+               end
+               
+               % x right
+               aPlots(2).X = xRightAnnotationDomain;
+               aPlots(2).Y = xAnnotationRange;
+               
+               % y left
+               aPlots(3).X = yLeftAnnotationDomain;
+               aPlots(3).Y = yAnnotationRange;
+               aPlots(3).TextArrowString = strcat(yAnnotation, ' ');               
+               aPlots(3).TextArrowVerticalAlignment = 'middle';
+               switch yArrowAnnotationLayout
+                  case 'inner'
+                     aPlots(3).TextArrowHorizontalAlignment = 'left';
+                     
+                  case 'outer'
+                     aPlots(3).TextArrowHorizontalAlignment = 'right';
+                     
+                  otherwise
+                     L.error('Unexpected yArrowAnnotationLayout spec: %s', ...
+                        yArrowAnnotationLayout);
+               end
+               
+               % y right
+               aPlots(4).X = yRightAnnotationDomain;
+               aPlots(4).Y = yAnnotationRange;
+               
+               % z left (bottom)
+               aPlots(5).Y = zLeftAnnotationDomain;
+               aPlots(5).X = zAnnotationRange;
+               
+               % z right (top)
+               aPlots(6).Y = zRightAnnotationDomain;
+               aPlots(6).X = zAnnotationRange;
+               aPlots(6).TextArrowString = zAnnotation;
+               switch zArrowAnnotationLayout
+                  case 'inner'
+                     aPlots(6).TextArrowHorizontalAlignment = 'right';
+                     aPlots(6).TextArrowVerticalAlignment = 'top';
+                     
+                  case 'outer'
+                     aPlots(6).TextArrowHorizontalAlignment = 'left';
+                     aPlots(6).TextArrowVerticalAlignment = 'bottom';
+                     
+                  otherwise
+                     L.error('Unexpected zArrowAnnotationLayout spec: %s', ...
+                        zArrowAnnotationLayout);
+               end
+               
+               %%% Axes Setup
+               gs = csmu.GridSpec(3, 5);
+               gs.VSpace = 0.3;
+               gs.HSpace = 0.3;
+               
+               axisConfigs(1, 6) = csmu.AxisConfiguration();
+               for iAc = 1:length(axisConfigs)
+                  axisConfigs(iAc) = copy(axisTemplate);
+               end
+               
+               axisConfigs(1).YAxisLocation = 'right';
+               axisConfigs(2).YAxisLocation = 'right';
+               
+               if doShowHeightAxis
+                  axisConfigs(1).YTick = xLabelRange;
+                  axisConfigs(2).YTick = yLabelRange;
+                  axisConfigs(3).XTick = zLabelRange;
+               else
+                  axisConfigs(1).YAxis.Visible = 'off';
+                  axisConfigs(2).YAxis.Visible = 'off';
+                  axisConfigs(3).XAxis.Visible = 'off';
+               end
+               
+               if inputs.DoShowSampleAxis
+                  axisConfigs(1).XAxis.Visible = 'on';
+                  axisConfigs(2).XAxis.Visible = 'on';
+                  axisConfigs(3).YAxis.Visible = 'on';
+               else
+                  axisConfigs(1).XAxis.Visible = 'off';
+                  axisConfigs(2).XAxis.Visible = 'off';
+                  axisConfigs(3).YAxis.Visible = 'off';
+                  
+                  axisConfigs(1).XTick = false;
+                  axisConfigs(2).XTick = false;
+                  axisConfigs(3).YTick = false;
+               end
+               
+               if inputs.DoShowAxisLabels
+                  axisConfigs(1).XLabel.String = 'X';
+                  axisConfigs(1).XLabel.VerticalAlignment = 'top';
+                  
+                  axisConfigs(2).XLabel.String = 'Y';
+                  axisConfigs(2).XLabel.VerticalAlignment = 'top';
+                  
+                  axisConfigs(3).YLabel.String = 'Z';
+                  axisConfigs(3).YLabel.Rotation = 0;
+                  axisConfigs(3).YLabel.VerticalAlignment = 'middle';
+                  axisConfigs(3).YLabel.HorizontalAlignment = 'center';
+               else
+                  axisConfigs(1).XLabel.String = '';
+                  axisConfigs(2).XLabel.String = '';
+                  axisConfigs(3).YLabel.String = '';
+               end
+               
+               axisConfigs(1).Position = gs(1, 2:3);
+               axisConfigs(1).XLim = xlim;
+               axisConfigs(1).YLim = xDisplayRange;
+               
+               axisConfigs(2).Position = gs(1, 4:5);
+               axisConfigs(2).XLim = ylim;
+               axisConfigs(2).YLim = yDisplayRange;
+               
+               axisConfigs(3).Position = gs(2:3, 1);
+               axisConfigs(3).YAxisLocation = 'right';
+               axisConfigs(3).XDir = 'reverse';
+               axisConfigs(3).YLim = zlim;
+               axisConfigs(3).XLim = zDisplayRange;
+               
+               for iAc = 1:2
+                  axisConfigs(iAc).XTick = axisConfigs(iAc).XLim;
+                  axisConfigs(iAc).XTickLabel = {'', ''};
+               end
+               axisConfigs(3).YTick = axisConfigs(3).YLim;
+               axisConfigs(3).YTickLabel = {'', ''};
+               
+               for iAc = 4:6
+                  axisConfigs(iAc).Visible = 'off';
+               end
+               
+               axisConfigs(4).Position = gs(2:3, 2:3);
+               axisConfigs(4).XLim = xlim;
+               axisConfigs(4).YLim = zlim;
+               
+               axisConfigs(5).Position = gs(2:3, 4:5);
+               axisConfigs(5).XLim = ylim;
+               axisConfigs(5).YLim = zlim;
+               
+               axisConfigs(6).Position = gs(1, 1);
+               
+               %%% Figure Builder Generation
+               subplotStacks = cell(1, 3);
+               for iPeak = 1:3
+                  subplotStacks{iPeak} = linePlots(iPeak);
+                  if self.PeakValid(iPeak)
+                     aPlotIdxs = (1:2) + ((iPeak - 1) * 2);
+                     
+                     subplotStacks{iPeak} = [
+                        subplotStacks{iPeak}, ...
+                        peakPointPlots(iPeak), ...
+                        textAnnotations(iPeak), ...
+                        aPlots(aPlotIdxs)];
+                  end
+               end
+               
+               fb.PlotBuilders = [...
+                  subplotStacks, ...
+                  {[imPlots(1), windowLinePlots(1:2)], ...
+                  [imPlots(2), windowLinePlots(3:4)], ...
+                  textAnnotations(4)}];
+               fb.AxisConfigs = axisConfigs;
+               figHeight = 800;
+               fb.Position = ...
+                  [908, 250, (gs.FigureAspectRatio * figHeight), figHeight];
+               fb.LinkAxes = {[1 4], 'x'; [2 5], 'x'; [3 4 5], 'y'};
+               
+            case 2
+               %%% Generation of Plot Objects
+               imPlots = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(imPlots)
+                  imPlots(iPlot) = copy(imPlotTemplate);
+               end
+               imPlots(1).I = xz;
+               imPlots(2).I = xy;
+               
+               linePlots = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(linePlots)
+                  linePlots(iPlot) = copy(linePlotTemplate);
+               end
+               linePlots(1).Y = zDomain;
+               linePlots(1).X = zRange;
+               linePlots(2).Y = yDomain;
+               linePlots(2).X = yRange;
+               
+               windowLinePlots = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(windowLinePlots)
+                  windowLinePlots(iPlot) = copy(windowLinePlotTemplate);
+               end
+               windowLinePlots(1).X = xz_z_WindowLine(:, 1);
+               windowLinePlots(1).Y = xz_z_WindowLine(:, 2);
+               windowLinePlots(2).X = xy_y_WindowLine(:, 1);
+               windowLinePlots(2).Y = xy_y_WindowLine(:, 2);
+               
+               peakPointPlots = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(peakPointPlots)
+                  peakPointPlots(iPlot) = copy(peakPointPlotTemplate);
+               end
+               peakPointPlots(1).Marker = peakPointMarker.right;
+               peakPointPlots(1).X = zPeakRange;
+               peakPointPlots(1).Y = zPeakDomain;
+               peakPointPlots(2).Marker = peakPointMarker.right;
+               peakPointPlots(2).X = yPeakRange;
+               peakPointPlots(2).Y = yPeakDomain;
+               
+               %%% Text Annotations
+               textAnnotations = csmu.plotBuilders(1, 2);
+               for iPlot = 1:length(textAnnotations)
+                  textAnnotations(iPlot) = copy(textAnnotationTemplate);
+               end
+               textAnnotations(1).Text = zAnnotationVerbose;
+               textAnnotations(2).Text = yAnnotationVerbose;               
+               
+               if~isempty(annotationText)
+                  L.info(strcat('Long Annotation text cannot be displayed', ...
+                     ' with the current plot layout (%d).'), inputs.PlotLayout);
+               end
+               
+               %%% Arrow Annotations
+               aPlots = csmu.plotBuilders(1, 4);
+               for iPlot = 1:length(aPlots)
+                  aPlots(iPlot) = copy(arrowAnnotationTemplate);
+               end
+               
+               % z left (top)
+               aPlots(1).Y = zLeftAnnotationDomain;
+               aPlots(1).X = zAnnotationRange;
+               aPlots(1).TextArrowString = zAnnotation;
+               switch zArrowAnnotationLayout
+                  case 'inner'
+                     aPlots(1).TextArrowHorizontalAlignment = 'left';
+                     aPlots(1).TextArrowVerticalAlignment = 'top';
+                     
+                  case 'outer'
+                     aPlots(1).TextArrowHorizontalAlignment = 'right';
+                     aPlots(1).TextArrowVerticalAlignment = 'bottom';
+                     
+                  otherwise
+                     L.error('Unexpected zArrowAnnotationLayout spec: %s', ...
+                        zArrowAnnotationLayout);
+               end
+               
+               % z right (bottom)
+               aPlots(2).Y = zRightAnnotationDomain;
+               aPlots(2).X = zAnnotationRange;               
+               
+               % y left (top)
+               aPlots(3).Y = yLeftAnnotationDomain;
+               aPlots(3).X = yAnnotationRange;
+               aPlots(3).TextArrowString = yAnnotation;
+               aPlots(3).TextArrowHorizontalAlignment = 'right';
+               aPlots(3).TextArrowVerticalAlignment = 'bottom';
+               switch yArrowAnnotationLayout
+                  case 'inner'
+                     aPlots(3).TextArrowHorizontalAlignment = 'left';
+                     aPlots(3).TextArrowVerticalAlignment = 'top';
+                     
+                  case 'outer'
+                     aPlots(3).TextArrowHorizontalAlignment = 'right';
+                     aPlots(3).TextArrowVerticalAlignment = 'bottom';
+                     
+                  otherwise
+                     L.error('Unexpected yArrowAnnotationLayout spec: %s', ...
+                        yArrowAnnotationLayout);
+               end
+               
+               % y right (bottom)
+               aPlots(4).Y = yRightAnnotationDomain;
+               aPlots(4).X = yAnnotationRange;              
+               
+               %%% Axes Setup
+               gs = csmu.GridSpec(4, 3);
+               gs.VSpace = 0.3;
+               gs.HSpace = 0.3;
+               
+               axisConfigs(1, 4) = csmu.AxisConfiguration();
+               for iAc = 1:length(axisConfigs)
+                  axisConfigs(iAc) = copy(axisTemplate);
+               end                                             
+                              
+               axisConfigs(1).Position = gs(1:2, 1:2);
+               axisConfigs(1).XLim = xlim;
+               axisConfigs(1).YLim = zlim;    
+               axisConfigs(1).YDir = 'reverse';
+               axisConfigs(1).Visible = 'off';               
+               
+               axisConfigs(2).Position = gs(3:4, 1:2);
+               axisConfigs(2).XLim = xlim;
+               axisConfigs(2).YLim = ylim;
+               axisConfigs(2).YDir = 'reverse';
+               axisConfigs(2).Visible = 'off';               
+                              
+               axisConfigs(3).Position = gs(1:2, 3);
+               axisConfigs(3).YLim = zlim;
+               axisConfigs(3).YDir = 'reverse';
+               axisConfigs(3).XLim = zDisplayRange; 
+               axisConfigs(3).XAxisLocation = 'bottom';
+               axisConfigs(3).YTick = zlim;
+               axisConfigs(3).YTickLabel = {'', ''};               
+                              
+               axisConfigs(4).Position = gs(3:4, 3);               
+               axisConfigs(4).YLim = ylim;
+               axisConfigs(4).YDir = 'reverse';
+               axisConfigs(4).XLim = yDisplayRange;
+               axisConfigs(4).XAxisLocation = 'bottom';               
+               axisConfigs(4).YTick = ylim;
+               axisConfigs(4).YTickLabel = {'', ''};               
+               
+               if doShowHeightAxis
+                  axisConfigs(3).XTick = zLabelRange;
+                  axisConfigs(4).XTick = yLabelRange;
+               else
+                  axisConfigs(3).XAxis.Visible = 'off';
+                  axisConfigs(4).XAxis.Visible = 'off';
+               end
+               
+               if inputs.DoShowSampleAxis
+                  axisConfigs(3).YAxis.Visible = 'on';
+                  axisConfigs(4).YAxis.Visible = 'on';
+               else
+                  axisConfigs(3).YAxis.Visible = 'off';
+                  axisConfigs(4).YAxis.Visible = 'off';
+                  
+                  axisConfigs(3).YTick = [];
+                  axisConfigs(4).YTick = [];
+               end
+               
+               if inputs.DoShowAxisLabels
+                  axisConfigs(3).YLabel.String = 'Z';
+                  axisConfigs(3).YLabel.Rotation = 0;
+                  axisConfigs(3).YLabel.VerticalAlignment = 'middle';
+                  axisConfigs(3).YLabel.HorizontalAlignment = 'center';
+                  
+                  axisConfigs(4).YLabel.String = 'Y';
+                  axisConfigs(4).YLabel.Rotation = 0;
+                  axisConfigs(4).YLabel.VerticalAlignment = 'middle';
+                  axisConfigs(4).YLabel.HorizontalAlignment = 'center';
+               else
+                  axisConfigs(3).YLabel.String = '';
+                  axisConfigs(4).YLabel.String = '';
+               end
+               
+               %%% Figure Builder Generation
+               subplotStacks = cell(1, 2);
+               orderToXYZ = [3, 2];
+               for iPeak = 1:2
+                  subplotStacks{iPeak} = linePlots(iPeak);                  
+                  if self.PeakValid(orderToXYZ(iPeak))
+                     aPlotIdxs = (1:2) + ((iPeak - 1) * 2);                     
+                     subplotStacks{iPeak} = [
+                        subplotStacks{iPeak}, ...
+                        peakPointPlots(iPeak), ...
+                        textAnnotations(iPeak), ...
+                        aPlots(aPlotIdxs)];
+                  end
+               end
+               
+               fb.PlotBuilders = [...
+                  {[imPlots(1), windowLinePlots(1)], ...
+                  [imPlots(2), windowLinePlots(2)]}, ...
+                  subplotStacks];
+               fb.AxisConfigs = axisConfigs;
+               figHeight = 800;
+               fb.Position = ...
+                  [908, 250, (gs.FigureAspectRatio * figHeight), figHeight];
+               fb.LinkAxes = {[1 2], 'x'; [1 3], 'y'; [2 4], 'y'};
+            
+            otherwise
+               L.error('Unexpected plot layout passed, %d.', ...
+                  inputs.PlotLayout);
+         end
       end
    end
    
@@ -753,7 +1098,9 @@ classdef ResolutionMeasurement < csmu.Object
             {'p', 'PeakLocationReference', 'maximum', {'maximum', 'center'}}
             {'p', 'WidthReference', 'halfheight', {'halfheight', 'halfprom'}}
             {'p', 'FindpeaksArgs', {}}
-            {'p', 'BackgroundPrctile', 20}            
+            {'p', 'BackgroundPrctile', 20}     
+            {'p', 'BackgroundValue', []}
+            {'p', 'MaximumPeakWidth', inf}
          };
          ip = csmu.constructInputParser(...
             parserSpec, ...
@@ -769,10 +1116,10 @@ classdef ResolutionMeasurement < csmu.Object
             if isempty(searchRadius)
                % default search radius (in voxels) is 5% of the largest 
                % dimension of the input volume V
-               searchRadius = 0.05 * max(size(V));
+               searchRadius = ceil(0.05 * max(size(V)));
             end
             
-            windowSideLength = (2 * inputs.PeakSearchRadius) + 1;
+            windowSideLength = (2 * searchRadius) + 1;
             windowSize = repmat(windowSideLength, 1, 3);
             lims = csmu.ImageRef(windowSize);
             lims.zeroCenter;
@@ -781,8 +1128,9 @@ classdef ResolutionMeasurement < csmu.Object
             limShiftTransform.Translation = point;
             lims = limShiftTransform.warpRef(lims);
             vWindowed = csmu.changeView(V, csmu.ImageRef(V), lims);
-            [maxVal, maxIdx] = max(vWindowed(:));
-            vWindowedThresh = (vWindowed >= maxVal);
+            % [maxVal, maxIdx] = max(vWindowed(:));
+            threshVal = prctile(vWindowed, 95, 'all');
+            vWindowedThresh = (vWindowed >= threshVal);
             stats = regionprops3(vWindowedThresh, vWindowed, ...
                'WeightedCentroid');
             
@@ -795,10 +1143,12 @@ classdef ResolutionMeasurement < csmu.Object
             candidateDistance = sqrt(candidateDistances(candidateIdx));
             newPoint = pointCandidates(candidateIdx, :);
             
-            L.info(['Point has been updated to [%s] from [%s],\n\ta ', ...
-               'distance of %.1f volxels apart.'], num2str(newPoint), ...
-               num2str(point), candidateDistance);
-            point = newPoint;
+            if ~any(isnan(newPoint))
+               L.info(['Point has been updated to [%s] from [%s],\n\ta ', ...
+                  'distance of %.1f volxels apart.'], num2str(newPoint), ...
+                  num2str(point), candidateDistance);
+               point = newPoint;
+            end
          end
          
          %% Generating Line and View         
@@ -814,20 +1164,34 @@ classdef ResolutionMeasurement < csmu.Object
          while true
             [xl, yl, zl] = csmu.arrayLineSample(V, peakPoint);
             
-            peakBackground = prctile(...
-               cat(1, xl, yl, zl), ...
-               inputs.BackgroundPrctile, ...
-               'all');
-            
-            L.debug('%d - Peak background found to be %.1f', ...
-               iIter, peakBackground)
-            
+            if isempty(inputs.BackgroundValue)
+               peakBackground = prctile(...
+                  cat(1, xl, yl, zl), ...
+                  inputs.BackgroundPrctile, ...
+                  'all');               
+               L.debug('%d - Peak background found to be %.1f', ...
+                  iIter, peakBackground)
+            else
+               peakBackground = inputs.BackgroundValue;
+            end
+                        
+            xlMax = max(xl, [], 'all');
             [xPeakVals, xLocs, xWGuesses, xPs] = ...
-               findpeaks(xl, findPeaksArgs{:});
+               findpeaks(xl / xlMax, findPeaksArgs{:});
+            xPeakVals = xPeakVals * xlMax;
+            xPs = xPs * xlMax;
+            
+            ylMax = max(yl, [], 'all');
             [yPeakVals, yLocs, yWGuesses, yPs] = ...
-               findpeaks(yl, findPeaksArgs{:});
+               findpeaks(yl / ylMax, findPeaksArgs{:});
+            yPeakVals = yPeakVals * ylMax;
+            yPs = yPs * ylMax;
+            
+            zlMax = max(zl, [], 'all');
             [zPeakVals, zLocs, zWGuesses, zPs] = ...
-               findpeaks(zl, findPeaksArgs{:});
+               findpeaks(zl / zlMax, findPeaksArgs{:});
+            zPeakVals = zPeakVals * zlMax;
+            zPs = zPs * zlMax;
             
             xExist = ~isempty(xPeakVals);
             yExist = ~isempty(yPeakVals);
@@ -848,13 +1212,15 @@ classdef ResolutionMeasurement < csmu.Object
                   xPeakVal, ...
                   xLoc, ...
                   peakBackground);
+               xWidth = diff(xEdges);
                
                if strcmpi(inputs.PeakLocationReference, 'center')
                   xLoc = mean(xEdges);
                   xSqD = (xLoc - peakPoint(1)) .^ 2;
                end
                
-               xValid = sqrt(xSqD) <= inputs.Maximum1DPeakDistance;
+               xValid = (sqrt(xSqD) <= inputs.Maximum1DPeakDistance) ...
+                  && (xWidth <= inputs.MaximumPeakWidth);
             else
                xLoc = 0;
                xPeakVal = 0;
@@ -878,13 +1244,15 @@ classdef ResolutionMeasurement < csmu.Object
                   yPeakVal, ...
                   yLoc, ...
                   peakBackground);
+               yWidth = diff(yEdges);
                
                if strcmpi(inputs.PeakLocationReference, 'center')
                   yLoc = mean(yEdges);
                   ySqD = (yLoc - peakPoint(2)) .^ 2;
                end
                
-               yValid = sqrt(ySqD) <= inputs.Maximum1DPeakDistance;
+               yValid = sqrt(ySqD) <= inputs.Maximum1DPeakDistance ...
+                  && (yWidth <= inputs.MaximumPeakWidth);
             else
                yLoc = 0;
                yPeakVal = 0;
@@ -908,13 +1276,15 @@ classdef ResolutionMeasurement < csmu.Object
                   zPeakVal, ...
                   zLoc, ...
                   peakBackground);
+               zWidth = diff(zEdges);
                
                if strcmpi(inputs.PeakLocationReference, 'center')
                   zLoc = mean(zEdges);
                   zSqD = (zLoc - peakPoint(3)) .^ 2;
                end
                
-               zValid = sqrt(zSqD) <= inputs.Maximum1DPeakDistance;
+               zValid = sqrt(zSqD) <= inputs.Maximum1DPeakDistance ...
+                  && (zWidth <= inputs.MaximumPeakWidth);
             else
                zLoc = 0;
                zPeakVal = 0;
@@ -945,7 +1315,7 @@ classdef ResolutionMeasurement < csmu.Object
                   if iterDelta < 1
                      break
                   elseif iIter >= inputs.Maximum1DRefineIterations
-                     L.debug('Maximum iterations reached, breaking loop');
+                     L.debug('Maximum iterations reached, breaking loop.');
                      break                     
                   else
                      iIter = iIter + 1;
@@ -995,71 +1365,134 @@ classdef ResolutionMeasurement < csmu.Object
       
       function [varargout] = edgeHelper(intensity, width, peak, loc, ...
             background)
-         intensity = intensity - background;
-         intensity(intensity < 0) = 0;
-         peak = peak - background;
          
-         lims = [1, length(intensity)];
-         halfWide = width / 2;
-         searchWidth = max(3, halfWide);
-         halfPeak = peak / 2;
+         inputs.WindowSize = 1;
+         inputs.MaxFraction = 0.5;
          
-         leftSearch = colon(...
-            round(csmu.bound((loc - (halfWide / 2)) - (searchWidth / 2), ...
-            lims(1), lims(2))), ...
-            round(csmu.bound((loc - (halfWide / 2)) + (searchWidth / 2), ...
-            lims(1), lims(2))));
-         leftIntensity = intensity(leftSearch);
+         intensity = intensity - background;  
+         inputLength = length(intensity);
          
-         if true
-            while true
-               leftNonPeakMask = leftIntensity < halfPeak;
-               leftNonPeakSearch = leftSearch(leftNonPeakMask);
-               
-               if any(leftNonPeakSearch)
-                  break
-               else
-                  leftSearch = leftSearch - 1;
-                  leftIntensity = intensity(leftSearch);
-               end
+         searchIntensity = movmean(...
+            intensity, ...
+            inputs.WindowSize, ...
+            'Endpoints', 'shrink');
+         
+         if csmu.isint(loc)
+            maxIdx = loc;
+         else
+            testLocs = [...
+               csmu.bound(ceil(loc), 1, inputLength), ...
+               csmu.bound(floor(loc), 1, inputLength)];
+            [~, tempMaxIdx] = max(...
+               searchIntensity(testLocs), [], 'all', 'linear');
+            maxIdx = testLocs(tempMaxIdx);
+         end         
+         
+         widthValue = searchIntensity(maxIdx) * inputs.MaxFraction;
+         
+         %%% Find the Leading Edge            
+         searchIdx = maxIdx;         
+         while searchIdx > (1 + 1)
+            if searchIntensity(searchIdx - 1) < widthValue
+               break
+            else
+               searchIdx = searchIdx - 1;
             end
-            
-            leftSearch = (0:1) + leftNonPeakSearch(end);
-            leftIntensity = intensity(leftSearch);
          end
+         leadingEdgeTestLocs = csmu.bound(...
+            [-1, 0] + searchIdx, 1, inputLength);
+         leadingEdgeTestVals = searchIntensity(leadingEdgeTestLocs);
+         leadingEdgeLoc = interp1(...
+            leadingEdgeTestVals, ...
+            leadingEdgeTestLocs, ...
+            widthValue);
          
-         rightSearch = colon(...
-            round(csmu.bound((loc + (halfWide / 2)) - (searchWidth / 2), ...
-            lims(1), lims(2))), ...
-            round(csmu.bound((loc + (halfWide / 2)) + (searchWidth / 2), ...
-            lims(1), lims(2))));
-         rightIntensity = intensity(rightSearch);
-         
-         
-         if true
-            while true
-               rightNonPeakMask = rightIntensity < halfPeak;
-               rightNonPeakSearch = rightSearch(rightNonPeakMask);
-               
-               if any(rightNonPeakSearch)
-                  break
-               else
-                  rightSearch = rightSearch + 1;
-                  rightIntensity = intensity(rightSearch);
-               end
+         %%% Find the Trailing Edge
+         searchIdx = maxIdx;
+         while searchIdx < (inputLength - 1)
+            if searchIntensity(searchIdx + 1) < widthValue
+               break
+            else
+               searchIdx = searchIdx + 1;
             end
-            
-            rightSearch = (-1:0) + rightNonPeakSearch(1);
-            rightIntensity = intensity(rightSearch);
          end
-         
-         leftEdge = interp1(leftIntensity, leftSearch, halfPeak);
-         rightEdge = interp1(rightIntensity, rightSearch,  halfPeak);
-         
-         assert(~any(isnan([leftEdge, rightEdge])));
+         trailingEdgeTestLocs = csmu.bound(...
+            [0, 1] + searchIdx, 1, inputLength);
+         trailingEdgeTestVals = searchIntensity(trailingEdgeTestLocs);
+         trailingEdgeLoc = interp1(...
+            trailingEdgeTestVals, ...
+            trailingEdgeTestLocs, ...
+            widthValue);
          
          varargout = {
-            [leftEdge, rightEdge], background + halfPeak};
+            [leadingEdgeLoc, trailingEdgeLoc], ...
+            widthValue + background};
+         
+%          intensity = intensity - background;
+%          intensity(intensity < 0) = 0;
+%          peak = peak - background;
+%          
+%          lims = [1, length(intensity)];
+%          halfWide = ceil(width / 2);
+%          searchWidth = max(2, halfWide);
+%          halfPeak = peak / 2;
+%          
+%          leftSearch = colon(...
+%             round(csmu.bound((loc - (halfWide / 2)) - (searchWidth / 2), ...
+%             lims(1), lims(2))), ...
+%             round(csmu.bound((loc - (halfWide / 2)) + (searchWidth / 2), ...
+%             lims(1), lims(2))));
+%          leftIntensity = intensity(leftSearch);
+%          
+%          if true
+%             while true
+%                leftNonPeakMask = leftIntensity < halfPeak;
+%                leftNonPeakSearch = leftSearch(leftNonPeakMask);
+%                
+%                if any(leftNonPeakSearch)
+%                   break
+%                else
+%                   leftSearch = leftSearch - 1;
+%                   leftIntensity = intensity(leftSearch);
+%                end
+%             end
+%             
+%             leftSearch = (0:1) + leftNonPeakSearch(end);
+%             leftIntensity = intensity(leftSearch);
+%          end
+%          
+%          rightSearch = colon(...
+%             round(csmu.bound((loc + (halfWide / 2)) - (searchWidth / 2), ...
+%             lims(1), lims(2))), ...
+%             round(csmu.bound((loc + (halfWide / 2)) + (searchWidth / 2), ...
+%             lims(1), lims(2))));
+%          rightIntensity = intensity(rightSearch);
+%          
+%          
+%          if true
+%             while true
+%                rightNonPeakMask = rightIntensity < halfPeak;
+%                rightNonPeakSearch = rightSearch(rightNonPeakMask);
+%                
+%                if any(rightNonPeakSearch)
+%                   break
+%                else
+%                   rightSearch = rightSearch + 1;
+%                   rightIntensity = intensity(rightSearch);
+%                end
+%             end
+%             
+%             rightSearch = (-1:0) + rightNonPeakSearch(1);
+%             rightIntensity = intensity(rightSearch);
+%          end
+%          
+%          leftEdge = interp1(leftIntensity, leftSearch, halfPeak);
+%          rightEdge = interp1(rightIntensity, rightSearch,  halfPeak);
+%          
+%          assert(~any(isnan([leftEdge, rightEdge])));
+%          
+%          varargout = {
+%             [leftEdge, rightEdge], background + halfPeak};
       end
    end
 end
