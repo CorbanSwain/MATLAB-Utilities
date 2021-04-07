@@ -1089,7 +1089,7 @@ classdef ResolutionMeasurement < csmu.Object
          
          %% Parsing Inputs
          L.info('Parsing inputs');
-         parserSpec = {
+         ip = csmu.InputParser.fromSpec({
             {'p', 'DoRefinePointBy3DCentroid', false}
             {'p', 'CentroidSearchRadius', []}
             {'p', 'DoRefinePointBy1DPeaks', true}
@@ -1098,14 +1098,12 @@ classdef ResolutionMeasurement < csmu.Object
             {'p', 'PeakLocationReference', 'maximum', {'maximum', 'center'}}
             {'p', 'WidthReference', 'halfheight', {'halfheight', 'halfprom'}}
             {'p', 'FindpeaksArgs', {}}
-            {'p', 'BackgroundPrctile', 20}     
+            {'p', 'BackgroundPrctile', 5}     
             {'p', 'BackgroundValue', []}
             {'p', 'MaximumPeakWidth', inf}
-         };
-         ip = csmu.constructInputParser(...
-            parserSpec, ...
-            'Name', fcnName, ...
-            'Args', varargin);
+            });
+         ip.FunctionName = fcnName;
+         ip.parse(varargin{:});
          inputs = ip.Results;
          
          %% Locate Maximum Within Radius

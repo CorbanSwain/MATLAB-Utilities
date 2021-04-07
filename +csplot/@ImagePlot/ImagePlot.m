@@ -29,7 +29,7 @@ classdef ImagePlot < csplot.PlotBuilder
             rgbImage = csplot.gray2rgb(imData, self.Colormap, ...
                'ColorLimits', self.ColorLimits, 'DoScaled', self.DoScaled);
             args = [args, {'CData', rgbImage}];
-            self.PlotHandle = image(args{:});
+            self.PlotHandle = builtin('image', args{:});
          else
             if ~isempty(imData)
                args = [args, {'CData', imData}];
@@ -41,7 +41,7 @@ classdef ImagePlot < csplot.PlotBuilder
                end
                self.PlotHandle = imagesc(args{:});
             else
-               self.PlotHandle = image(args{:});
+               self.PlotHandle = builtin('image', args{:});
                if ~isempty(self.ColorLimits)
                   axisHandle.CLim = self.ColorLimits;
                end

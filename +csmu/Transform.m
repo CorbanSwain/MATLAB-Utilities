@@ -275,7 +275,7 @@ classdef Transform < handle & matlab.mixin.Copyable
          else
             if isempty(self.Rotation) && isempty(self.Translation)
                L.warn('Defaulting to return an affine3d object');
-               out = affine3d;
+               out = affine3d();
             else
                [rot, trans] = deal([]);
                idxOrder = self.TranslationRotationOrder;

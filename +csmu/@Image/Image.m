@@ -79,12 +79,13 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
                imageLike = varargin{1};
                otherArgs = varargin(2:end);               
                
-               parserSpec = {
+               ip = csmu.InputParser.fromSpec({
                   {'p', 'DoAutoChannelDim', true, 'logicalScalar'}
-                  {'p', 'Slice', []}};
-               ip = csmu.constructInputParser(parserSpec, 'Name', funcName, ...
-                  'Args', otherArgs);
-               ip = ip.Results;
+                  {'p', 'Slice', []}
+                  });
+               ip.FunctionName = funcName;
+               ip.parse(otherArgs{:});
+               inputs = ip.Results;
                
                switch class(imageLike)
                   case 'csmu.Image'
@@ -98,9 +99,9 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
                         'Input must be image-like (arr, csmu.Image, or path).');
                      self.I = imageLike;
                end
-               self.SliceIdx = ip.Slice;
+               self.SliceIdx = inputs.Slice;
                
-               if ip.DoAutoChannelDim
+               if inputs.DoAutoChannelDim
                   threeDims = find(self.Size == 3);
                   if ~isempty(threeDims) && any(threeDims > 2)
                      threeDims = threeDims(threeDims > 2);
@@ -252,7 +253,7 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          if length(varargin) == 1 && iscell(varargin{1})
             varargin = varargin{1};
          end
-         newIm = self.stackImage(self.ChannelDim, varargin{:});
+         newIm = self.stackImageOld(self.ChannelDim, varargin{:});
          if ~isempty(self.I) 
             if newIm.Size ~= self.Size
                L.warn('Image dimensions changed when applying channels ', ...
@@ -338,12 +339,16 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
       function imageArray = unstackImage(stackDim, stackType, imageData)
          %   Inputs
          %      - splitDim: (1, 1) {numeric, integer,  > 0}
-         %      - splitType: {scalarStringLike}
+         %      - stackType: {csmu.ImageStackType} ('channel', 'depth', 'time')
          %      - imageData: {numeric}
          %
          %   Outputs
          %      - imageArray: (1, :) csmu.Image
-                 
+         
+         L = csmu.Logger(strcat('csmu.', mfilename, '.unstackImage'));
+         L.error(strcat('`csmu.Image.unstackImage()` function is not', ...
+            ' yet implimented.'));
+         
          oldSize = size(imageData);
          newSize = oldSize;
          newSize(stackDim) = [];
@@ -386,6 +391,8 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
       end
       
       function I = stackImage(stackDim, stackType)
+         L = csmu.Logger(strcat('csmu.', mfilename, '.stackImage'));
+         L.error('`csmu.Image.stackImage()` function is not yet implimented.');
       end
       
       function outputImage = imcat(stackDimension, varargin)

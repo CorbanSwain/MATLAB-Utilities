@@ -30,18 +30,19 @@
 function output = durationString(x, varargin)
 %% Meta Setup
 %%% Function Metadata
-fcnName =  strcat('csmu.', mfilename);
+fcnName =  ['csmu.', mfilename];
 
 %%% Logging
-L = csmu.Logger(fcnName);
+% L = csmu.Logger(fcnName);
 
 %%% Input Handling
-parserSpec = {
+ ip = csmu.InputParser.fromSpec({
    {'p', 'DurationFcn', @seconds}
    {'p', 'DurationFmt', 'mm:ss.SS'}
    {'p', 'Suffix', ' min:sec'}
-};
-ip = csmu.constructInputParser(parserSpec, 'Name', fcnName, 'Args', varargin);
+   });
+ip.FunctionName = fcnName;
+ip.parse(varargin{:});
 inputs = ip.Results;
 
 %% Implementation

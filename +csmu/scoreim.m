@@ -96,13 +96,12 @@ fcnName = strcat('csmu.', mfilename, '/evalResolution');
 
 L = csmu.Logger(fcnName);
 
-inputParserSpec = {
+ip = csmu.InputParser.fromSpec({
    {'p', 'PrctCutoff', 0}
-};
-ip = csmu.constructInputParser(inputParserSpec, ...
-   'Name', fcnName, ...
-   'Args', varargin, ...
-   'DoKeepUnmatched', true);
+   });
+ip.FunctionName = fcnName;
+ip.DoKeepUnmatched = true;
+ip.parse(varargin{:});
 inputs = ip.Results;
 
 if inputs.PrctCutoff == 0
@@ -120,16 +119,15 @@ fcnName = strcat('csmu.', mfilename, '/evalResolution');
 
 L = csmu.Logger(fcnName);
 
-inputParserSpec = {
-   {'rp', 'BeadLocations', []}
+ip = csmu.InputParser.fromSpec({
+   {'rp', 'BeadLocations'}
    {'p', 'ResMeasureCalculateArgs', false}
    {'p', 'DoMakeResMeasureFigures', false}
    {'p', 'BeadValidityEdgeMargin', 0}
-};
-ip = csmu.constructInputParser(inputParserSpec, ...
-   'Name', fcnName, ...
-   'Args', varargin, ...
-   'DoKeepUnmatched', true);
+   });
+ip.FunctionName = fcnName;
+ip.DoKeepUnmatched = true;
+ip.parse(varargin{:});
 inputs = ip.Results;
 
 if isequal(inputs.ResMeasureCalculateArgs, false)
@@ -140,7 +138,6 @@ if isequal(inputs.ResMeasureCalculateArgs, false)
       'Maximum1DPeakDistance', 8, ...
       'PeakLocationReference', 'maximum', ...
       'FindpeaksArgs', {'MinPeakHeight', 0.01}, ...
-      'BackgroundPrctile', 20, ...
       'MaximumPeakWidth', inf};
 else
    calcArgs = inputs.ResMeasureCalculateArgs;

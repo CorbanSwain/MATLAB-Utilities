@@ -15,6 +15,7 @@ ip.addParameter('UnitRatio', 1, @(x) isvector(x) && any(length(x) == [1 3]));
 ip.addParameter('UnitRatioOrdering', csmu.IndexOrdering.XY, ...
    @(x) isa(x, 'csmu.IndexOrdering'))
 ip.addParameter('DarkMode', false);
+ip.addParameter('DoDarkMode', false);
 ip.addParameter('ProjectionFcn', []);
 ip.addParameter('DoMaskDark', false);
 ip.addParameter('FigureName', '');
@@ -36,7 +37,7 @@ unitName = ip.UnitName;
 unitRatioOrdering = ip.UnitRatioOrdering;
 backgroundColor = ip.BackgroundColor;
 axesColor = ip.AxesColor;
-doDarkMode = ip.DarkMode;
+doDarkMode = ip.DarkMode || ip.DoDarkMode;
 scaleBarLength = ip.ScaleBarLength;
 doShowAxes = ip.DoShowAxes;
 doShowAxesArrows = ip.DoShowAxesArrows;
