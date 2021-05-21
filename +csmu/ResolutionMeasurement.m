@@ -428,9 +428,17 @@ classdef ResolutionMeasurement < csmu.Object
          xPeakRange = xPeak;
          xWidth_um = xWidth * voxelResolution(1);
          if self.PeakValid(1)
-            xLabelRange = [...
-               background, ...
-               max(xPeak, background + eps(background))];            
+            if ~any(isnan(xEdges))
+               xEdgesIdx = csmu.bound(round(xEdges), 1, length(xLine));
+               xLabelRange = [
+                  background, ...
+                  max(max(xLine(xEdgesIdx(1):xEdgesIdx(2)), [], 'all'), ...
+                  background + eps(background))];
+            else
+               xLabelRange = [...
+                  background, ...
+                  max(xPeak, background + eps(background))];
+            end
          else
             xLabelRange = defaultRange;
          end
@@ -459,9 +467,17 @@ classdef ResolutionMeasurement < csmu.Object
          yPeakRange = yPeak;
          yWidth_um = yWidth * voxelResolution(2);
          if self.PeakValid(2)
-            yLabelRange = [...
-               background, ...
-               max(yPeak, background + eps(background))];
+            if ~any(isnan(yEdges))
+               yEdgesIdx = csmu.bound(round(yEdges), 1, length(yLine));
+               yLabelRange = [
+                  background, ...
+                  max(max(yLine(yEdgesIdx(1):yEdgesIdx(2)), [], 'all'), ...
+                  background + eps(background))];
+            else
+               yLabelRange = [...
+                  background, ...
+                  max(yPeak, background + eps(background))];
+            end
          else
             yLabelRange = defaultRange;
          end
@@ -491,9 +507,17 @@ classdef ResolutionMeasurement < csmu.Object
          zPeakRange = zPeak;
          zWidth_um = zWidth * voxelResolution(3);
          if self.PeakValid(3)
-            zLabelRange = [...
-               background, ...
-               max(zPeak, background + eps(background))];
+            if ~any(isnan(zEdges))
+               zEdgesIdx = csmu.bound(round(zEdges), 1, length(zLine));
+               zLabelRange = [
+                  background, ...
+                  max(max(zLine(zEdgesIdx(1):zEdgesIdx(2)), [], 'all'), ...
+                  background + eps(background))];
+            else
+               zLabelRange = [...
+                  background, ...
+                  max(zPeak, background + eps(background))];
+            end
          else
             zLabelRange = defaultRange;
          end
@@ -1213,12 +1237,28 @@ classdef ResolutionMeasurement < csmu.Object
                xWidth = diff(xEdges);
                
                if strcmpi(inputs.PeakLocationReference, 'center')
-                  xLoc = mean(xEdges);
+                  if any(isnan(xEdges))
+                     if all(isnan(xEdges))
+                        % do nothing
+                     elseif isnan(xEdges(1))
+                        xEdgesTemp = [0.5, xEdges(2)];
+                        xWidth = diff(xEdgesTemp);
+                        xLoc = mean(xEdgesTemp);
+                     else
+                        xEdgesTemp = [xEdges(1), length(xl) + 0.5];
+                        xWidth = diff(xEdgesTemp);
+                        xLoc = mean(xEdgesTemp);
+                     end                  
+                  else
+                     xLoc = mean(xEdges);
+                  end
+                  
                   xSqD = (xLoc - peakPoint(1)) .^ 2;
                end
                
                xValid = (sqrt(xSqD) <= inputs.Maximum1DPeakDistance) ...
-                  && (xWidth <= inputs.MaximumPeakWidth);
+                  && (xWidth <= inputs.MaximumPeakWidth) ...
+                  && ~any(isnan(xEdges));
             else
                xLoc = 0;
                xPeakVal = 0;
@@ -1249,8 +1289,29 @@ classdef ResolutionMeasurement < csmu.Object
                   ySqD = (yLoc - peakPoint(2)) .^ 2;
                end
                
-               yValid = sqrt(ySqD) <= inputs.Maximum1DPeakDistance ...
-                  && (yWidth <= inputs.MaximumPeakWidth);
+               if strcmpi(inputs.PeakLocationReference, 'center')
+                  if any(isnan(yEdges))
+                     if all(isnan(yEdges))
+                        % do nothing
+                     elseif isnan(yEdges(1))
+                        yEdgesTemp = [0.5, yEdges(2)];
+                        yWidth = diff(yEdgesTemp);
+                        yLoc = mean(yEdgesTemp);
+                     else
+                        yEdgesTemp = [yEdges(1), length(yl) + 0.5];
+                        yWidth = diff(yEdgesTemp);
+                        yLoc = mean(yEdgesTemp);
+                     end                  
+                  else
+                     yLoc = mean(yEdges);
+                  end
+                  
+                  ySqD = (yLoc - peakPoint(2)) .^ 2;
+               end
+               
+               yValid = (sqrt(ySqD) <= inputs.Maximum1DPeakDistance) ...
+                  && (yWidth <= inputs.MaximumPeakWidth) ...
+                  && ~any(isnan(yEdges));
             else
                yLoc = 0;
                yPeakVal = 0;
@@ -1277,12 +1338,28 @@ classdef ResolutionMeasurement < csmu.Object
                zWidth = diff(zEdges);
                
                if strcmpi(inputs.PeakLocationReference, 'center')
-                  zLoc = mean(zEdges);
+                  if any(isnan(zEdges))
+                     if all(isnan(zEdges))
+                        % do nothing
+                     elseif isnan(zEdges(1))
+                        zEdgesTemp = [0.5, zEdges(2)];
+                        zWidth = diff(zEdgesTemp);
+                        zLoc = mean(zEdgesTemp);
+                     else
+                        zEdgesTemp = [zEdges(1), length(zl) + 0.5];
+                        zWidth = diff(zEdgesTemp);
+                        zLoc = mean(zEdgesTemp);
+                     end
+                  else
+                     zLoc = mean(zEdges);
+                  end
+                  
                   zSqD = (zLoc - peakPoint(3)) .^ 2;
                end
                
-               zValid = sqrt(zSqD) <= inputs.Maximum1DPeakDistance ...
-                  && (zWidth <= inputs.MaximumPeakWidth);
+               zValid = (sqrt(zSqD) <= inputs.Maximum1DPeakDistance) ...
+                  && (zWidth <= inputs.MaximumPeakWidth) ...
+                  && ~any(isnan(zEdges));
             else
                zLoc = 0;
                zPeakVal = 0;
@@ -1390,37 +1467,55 @@ classdef ResolutionMeasurement < csmu.Object
          
          %%% Find the Leading Edge            
          searchIdx = maxIdx;         
-         while searchIdx > (1 + 1)
+         isLeadingEdge = true;
+         while searchIdx > 1
             if searchIntensity(searchIdx - 1) < widthValue
+               isLeadingEdge = false;
                break
             else
                searchIdx = searchIdx - 1;
             end
          end
-         leadingEdgeTestLocs = csmu.bound(...
-            [-1, 0] + searchIdx, 1, inputLength);
-         leadingEdgeTestVals = searchIntensity(leadingEdgeTestLocs);
-         leadingEdgeLoc = interp1(...
-            leadingEdgeTestVals, ...
-            leadingEdgeTestLocs, ...
-            widthValue);
+        
+         if isLeadingEdge
+            warning(strcat('Leading edge of peak is beyond boundary of', ...
+               ' array, assigning NaN for leading edge.'));
+            leadingEdgeLoc = NaN;
+         else
+            leadingEdgeTestLocs = csmu.bound(...
+               [-1, 0] + searchIdx, 1, inputLength);
+            leadingEdgeTestVals = searchIntensity(leadingEdgeTestLocs);
+            leadingEdgeLoc = interp1(...
+               leadingEdgeTestVals, ...
+               leadingEdgeTestLocs, ...
+               widthValue);
+         end
          
          %%% Find the Trailing Edge
          searchIdx = maxIdx;
-         while searchIdx < (inputLength - 1)
+         isTrailingEdge = true;
+         while searchIdx < inputLength
             if searchIntensity(searchIdx + 1) < widthValue
+               isTrailingEdge = false;
                break
             else
                searchIdx = searchIdx + 1;
             end
          end
-         trailingEdgeTestLocs = csmu.bound(...
-            [0, 1] + searchIdx, 1, inputLength);
-         trailingEdgeTestVals = searchIntensity(trailingEdgeTestLocs);
-         trailingEdgeLoc = interp1(...
-            trailingEdgeTestVals, ...
-            trailingEdgeTestLocs, ...
-            widthValue);
+         
+         if isTrailingEdge
+            warning(strcat('Trailing edge of peak is beyond boundary', ...
+               ' of array, assigning NaN for trailing edge.'));
+            trailingEdgeLoc = NaN;
+         else
+            trailingEdgeTestLocs = csmu.bound(...
+               [0, 1] + searchIdx, 1, inputLength);
+            trailingEdgeTestVals = searchIntensity(trailingEdgeTestLocs);
+            trailingEdgeLoc = interp1(...
+               trailingEdgeTestVals, ...
+               trailingEdgeTestLocs, ...
+               widthValue);
+         end
          
          varargout = {
             [leadingEdgeLoc, trailingEdgeLoc], ...

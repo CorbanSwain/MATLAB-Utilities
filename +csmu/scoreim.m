@@ -45,8 +45,8 @@ for iMeth = 1:nMeth
          
       case 'fakeSnr'
          insideSelect = boolean(R);
-         signal = mean(I(insideSelect));
-         noise = mean(I(~insideSelect));
+         signal = sum(I(insideSelect), 'all') ./ numel(R);
+         noise = sum(I(~insideSelect), 'all') ./ numel(R);
          score = [score, (20 * log10(signal / noise))];
          
       case 'psnr'
@@ -110,7 +110,7 @@ else
    outsideMask = R <= prctile(R, inputs.PrctCutoff, 'all');
 end
 
-sumOutside = mean(I(outsideMask), 'all');
+sumOutside = sum(I(outsideMask), 'all') / numel(R);
 end
 
 

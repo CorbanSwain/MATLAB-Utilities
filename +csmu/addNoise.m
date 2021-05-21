@@ -24,11 +24,15 @@ if doFullScale
    I = I / max(I(:));
 end
 maxPhotonCount = photonsPerPixelPerSec * exposureTime * quantumEffenciency;
-photonsImage = cast(maxPhotonCount * I, 'uint16');
-totalPhotonCount = sum(photonsImage(:));
+photonsImage = cast(round(maxPhotonCount * I), 'double');
+totalPhotonCount = sum(photonsImage, 'all');
 
-noisyPhotonsImage = cast(imnoise(photonsImage, 'poisson'), outputClass);
+imNoiseConst = 1e12;
+addPoissonNoise = @(x) imnoise(x / imNoiseConst, 'poisson') * imNoiseConst;
+
+noisyPhotonsImage = cast(addPoissonNoise(photonsImage), outputClass);
 noisySensorImage = cast(readNoise * randn(size(photonsImage)), outputClass);
+
 J = subplus(noisyPhotonsImage + noisySensorImage);
 J = J / maxPhotonCount;
 

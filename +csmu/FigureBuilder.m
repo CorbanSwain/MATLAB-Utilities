@@ -133,12 +133,12 @@ classdef FigureBuilder < handle
                   
          ip = csmu.InputParser.fromSpec({
             {'o', 'FigureDir', 'figures', @isstr}
-            {'p', 'ExportOptions', {'-m1', '-transparent', '-nocrop'}
+            {'p', 'ExportOptions', {'-m1', '-transparent', '-nocrop'}}
             });
          ip.parse(varargin{:});
          inputs = ip.Results;                  
          
-         figureDir = inputs.figureDir;
+         figureDir = inputs.FigureDir;
          exportOptions = inputs.ExportOptions;
          
          if ~isfolder(figureDir)

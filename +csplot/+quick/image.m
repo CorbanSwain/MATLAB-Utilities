@@ -42,13 +42,16 @@ fcnName = strcat('csplot.quick.', mfilename);
 L = csmu.Logger(fcnName);
 
 %%% Input Handling
-parserSpec = {
+ip = csmu.InputParser.fromSpec({
    {'p', 'Colormap', 'magma'}
    {'p', 'ColorLimits', []}
    {'p', 'DoScaled', true}
    {'p', 'DoShowFigure', true}
-   };
-ip = csmu.constructInputParser(parserSpec, 'Name', fcnName, 'Args', varargin);
+   {'p', 'Title', ''}
+   {'p', 'Name', ''}
+   });
+ip.FunctionName = fcnName;
+ip.parse(varargin{:});
 inputs = ip.Results;
 
 %% Evaluation
@@ -71,9 +74,19 @@ ax.XLim = [1, I.Size(2)] + [-0.5, +0.5];
 ax.YLim = [1, I.Size(1)] + [-0.5, +0.5];
 ax.DataAspectRatio = [1, 1, 1];
 
+if ~isempty(inputs.Title)
+   ax.Title = inputs.Title;
+end
+
 fig = csplot.FigureBuilder();
 fig.AxisConfigs = [ax];
 fig.PlotBuilders = {{imPlot}};
+
+if ~isempty(inputs.Name)
+   fig.Name = inputs.Name;
+elseif ~isempty(inputs.Title)
+   fig.Name = inputs.Title;
+end
 
 if inputs.DoShowFigure
    fig.show();

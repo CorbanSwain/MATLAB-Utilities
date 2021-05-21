@@ -54,6 +54,12 @@ classdef BoxPlot < csplot.PlotBuilder
                groups = categories(self.Groups);
                nGroups = numel(groups);
                doUseGroups = true;
+            elseif iscell(self.Groups)
+               vals = self.X;
+               nGroups = size(vals, 2);
+               assert(length(self.Groups) == nGroups, ...
+                  'Num. group labels does not match num. columns in data arr.');
+               doUseGroups = false;
             else
                error('Unexpected value for self.Groups');
             end
