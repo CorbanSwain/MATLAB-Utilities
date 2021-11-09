@@ -37,11 +37,11 @@ if doCheckMax
 end
 
 if doWarn
-   if doCheckMin && any(lessThanMin)
+   if doCheckMin && any(lessThanMin, 'all')
       warning('%s cannot be smaller than [%s], truncating value(s).', ...
          varName, num2str(minVal));
    end
-   if doCheckMax && any(greaterThanMax)
+   if doCheckMax && any(greaterThanMax, 'all')
       warning('%s cannot be larger than [%s], truncating value(s).', ...
          varName, num2str(maxVal));
    end

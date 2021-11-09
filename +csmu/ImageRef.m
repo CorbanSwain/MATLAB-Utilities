@@ -8,6 +8,8 @@ classdef ImageRef < csmu.Object
       
       WorldLimits
       
+      PixelCornerLoc
+      
       PixelCenterLimits
       XPixelCenterLimits
       YPixelCenterLimits
@@ -17,6 +19,8 @@ classdef ImageRef < csmu.Object
       XWorldLimits
       YWorldLimits
       ZWorldLimits
+      
+      CenterLoc
       
       ImageSize    
       
@@ -144,6 +148,20 @@ classdef ImageRef < csmu.Object
          out = {self.XPixelCenterLimits, self.YPixelCenterLimits};
          if self.NumDims == 3
             out = [out, {self.ZPixelCenterLimits}];            
+         end
+      end
+      
+      function out = get.PixelCornerLoc(self)
+         out = [];
+         for lims = self.PixelCenterLimits
+            out = [out, lims{1}(1)];
+         end
+      end
+      
+      function out = get.CenterLoc(self)
+         out = [];
+         for lims = self.WorldLimits
+            out = [out, mean(lims{1}, 'all')];
          end
       end
       

@@ -81,7 +81,7 @@ for iMeth = 1:nMeth
    end
    
    if ~isreal(score(end))
-      L.warn('Score for "%s" has imaginary component.', method);
+      L.warn('Score for "%s" has imaginary component, removing.', method);
       score(end) = real(score(end));
    end
    
@@ -154,10 +154,18 @@ resMeasureFigureArgs = {
    'PlotLayout', 1};
 
 nLocations = size(inputs.BeadLocations, 1);
+
+if nLocations == 0
+   medianRes = [NaN, NaN, NaN];
+   return
+end
+
 resMeasures(1, nLocations) = csmu.ResolutionMeasurement();
 
-for iBead = 1:nLocations
+for iBead = 1:nLocations   
    try
+      L.debug('Attempting to measure resolution at location %02d / %02d.', ...
+         iBead, nLocations);
       resMeasures(iBead) = csmu.ResolutionMeasurement.calculate(...
          I, ...
          inputs.BeadLocations(iBead, :), ...
@@ -168,9 +176,9 @@ for iBead = 1:nLocations
          fb.figure();
       end
    catch ME
-      L.debug(strcat('Error found while attempting to calculate', ...
-         ' resolution at a bead location (# %d):'), iBead);
-      L.logException(csmu.LogLevel.DEBUG, ME);
+      L.debug(strcat('Error raised while attempting to calculate', ...
+         ' resolution at a bead location (# %d).'), iBead);
+      L.logException(csmu.LogLevel.TRACE, ME);
    end
 end
 

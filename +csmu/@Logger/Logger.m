@@ -652,7 +652,7 @@ classdef Logger < handle
                || isempty(self.doAutoLineNumber)
             % if this is true, something went wrong, don't worry about
             % autologging
-            return;
+            return
          end
          
          if self.doAutolog

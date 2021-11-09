@@ -381,7 +381,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       end
       
       function out = mtimes(self, obj)
-         out = csmu.Transform;
+         out = csmu.Transform();
          if self.NumDims == 2
             out.AffineObj = affine2d(self.T * obj.T);
          else

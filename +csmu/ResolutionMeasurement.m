@@ -1112,7 +1112,7 @@ classdef ResolutionMeasurement < csmu.Object
          L = csmu.Logger(fcnName);
          
          %% Parsing Inputs
-         L.info('Parsing inputs');
+         L.trace('Parsing inputs');
          ip = csmu.InputParser.fromSpec({
             {'p', 'DoRefinePointBy3DCentroid', false}
             {'p', 'CentroidSearchRadius', []}
@@ -1132,7 +1132,7 @@ classdef ResolutionMeasurement < csmu.Object
          
          %% Locate Maximum Within Radius
          if inputs.DoRefinePointBy3DCentroid
-            L.debug('Attempting to refine point by 3D centroid estimation');
+            L.trace('Attempting to refine point by 3D centroid estimation');
             
             searchRadius = inputs.CentroidSearchRadius;
             if isempty(searchRadius)
@@ -1166,7 +1166,7 @@ classdef ResolutionMeasurement < csmu.Object
             newPoint = pointCandidates(candidateIdx, :);
             
             if ~any(isnan(newPoint))
-               L.info(['Point has been updated to [%s] from [%s],\n\ta ', ...
+               L.trace(['Point has been updated to [%s] from [%s],\n\ta ', ...
                   'distance of %.1f volxels apart.'], num2str(newPoint), ...
                   num2str(point), candidateDistance);
                point = newPoint;
@@ -1178,10 +1178,10 @@ classdef ResolutionMeasurement < csmu.Object
             {'WidthReference', inputs.WidthReference}, ...
             inputs.FindpeaksArgs];         
          
-         L.info('\tGenerating Line Samples');
+         L.trace('\tGenerating Line Samples');
          peakPoint = point;         
          
-         L.info('\tDetermining Peak Locations');
+         L.trace('\tDetermining Peak Locations');
          iIter = 0;
          while true
             [xl, yl, zl] = csmu.arrayLineSample(V, peakPoint);
@@ -1191,7 +1191,7 @@ classdef ResolutionMeasurement < csmu.Object
                   cat(1, xl, yl, zl), ...
                   inputs.BackgroundPrctile, ...
                   'all');               
-               L.debug('%d - Peak background found to be %.1f', ...
+               L.trace('%d - Peak background found to be %.1f', ...
                   iIter, peakBackground)
             else
                peakBackground = inputs.BackgroundValue;
@@ -1377,7 +1377,7 @@ classdef ResolutionMeasurement < csmu.Object
                if inputs.DoRefinePointBy1DPeaks                                    
                   iterDelta = sqrt(sum([xSqD, ySqD, zSqD]));
                   
-                  L.debug(strcat(...
+                  L.trace(strcat(...
                      '%d - Point has been updated to \n[%s] from the', ...
                      ' original point \n[%s]; a distance of %.1f volxels ', ...
                      ' apart.\nIteration update distance is %.1f voxels.'), ...
@@ -1390,14 +1390,14 @@ classdef ResolutionMeasurement < csmu.Object
                   if iterDelta < 1
                      break
                   elseif iIter >= inputs.Maximum1DRefineIterations
-                     L.debug('Maximum iterations reached, breaking loop.');
+                     L.trace('Maximum iterations reached, breaking loop.');
                      break                     
                   else
                      iIter = iIter + 1;
                      continue
                   end
                else                  
-                  L.debug(strcat(...
+                  L.trace(strcat(...
                      'Peak point found to be\n[%s]; sample point is\n[%s].', ...
                      ' Distance between them is %.1f voxels.'), ...
                      num2str(peakPoint), ...
@@ -1406,7 +1406,7 @@ classdef ResolutionMeasurement < csmu.Object
                   break
                end
             else
-               L.debug(strcat('Peaks were not found in all dimensions ', ...
+               L.trace(strcat('Peaks were not found in all dimensions ', ...
                   ' [x = %s, y = %s, z = %s].'), ...
                   csmu.bool2string(xExist), ...
                   csmu.bool2string(yExist), ...
@@ -1440,6 +1440,7 @@ classdef ResolutionMeasurement < csmu.Object
       
       function [varargout] = edgeHelper(intensity, width, peak, loc, ...
             background)
+         L = csmu.Logger('edgeHelper');
          
          inputs.WindowSize = 1;
          inputs.MaxFraction = 0.5;
@@ -1478,7 +1479,7 @@ classdef ResolutionMeasurement < csmu.Object
          end
         
          if isLeadingEdge
-            warning(strcat('Leading edge of peak is beyond boundary of', ...
+            L.warn(strcat('Leading edge of peak is beyond boundary of', ...
                ' array, assigning NaN for leading edge.'));
             leadingEdgeLoc = NaN;
          else
@@ -1504,7 +1505,7 @@ classdef ResolutionMeasurement < csmu.Object
          end
          
          if isTrailingEdge
-            warning(strcat('Trailing edge of peak is beyond boundary', ...
+            L.warn(strcat('Trailing edge of peak is beyond boundary', ...
                ' of array, assigning NaN for trailing edge.'));
             trailingEdgeLoc = NaN;
          else

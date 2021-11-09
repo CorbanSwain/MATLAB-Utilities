@@ -1,21 +1,25 @@
 function outputFilePaths = glob(format)
 funcName = strcat('csmu.', mfilename);
-L = csmu.Logger(funcName);
-fileList = dir(format);
+
 [parentDir, globFmt, globExt] = fileparts(format);
+recurFormat = fullfile(parentDir, '**', strcat(globFmt, globExt));
+
+L = csmu.Logger(funcName);
+fileList = dir(recurFormat);
+
 if isempty(parentDir)
    parentDir = strcat('.', filesep);
 end
 globFmt = strcat(globFmt, globExt);
 if isempty(fileList)
-   L.debug('Matched no files in\n   "%s"\n   using format "%s".',...
+   L.debug('Matched no files/folders in\n   "%s"\n   using format "%s".',...
       strrep(parentDir, '\', '\\'), globFmt);
    outputFilePaths = {};
    return
 end
 nFiles = length(fileList);
-L.debug('Found %d matching files in\n   "%s"\n   using format "%s".', nFiles, ...
-   strrep(parentDir, '\', '\\'), globFmt);
+L.debug('Found %d matching files/folders in\n   "%s"\n   using format "%s".',...
+   nFiles, strrep(parentDir, '\', '\\'), globFmt);
 fileNames = cell(1, nFiles);
 [fileNames{:}] = fileList.name;
 [fileNames, sortIdx] = sort(fileNames);

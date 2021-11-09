@@ -42,10 +42,13 @@ classdef InputParser < inputParser
       end
       
       function output = get.MissingRequiredParams(self)
-         isMissingReqParam = contains(...
-            self.UsingDefaults, ...
-            self.RequiredParamNames);
-         output = self.UsingDefaults(isMissingReqParam);
+         output = {};
+         for iReqParam = 1:length(self.RequiredParamNames)
+            reqParam = self.RequiredParamNames{iReqParam};
+            if any(strcmp(reqParam, self.UsingDefaults))
+               output = [output, {reqParam}];
+            end
+         end
       end
       
       function set.DoKeepUnmatched(self, input)
