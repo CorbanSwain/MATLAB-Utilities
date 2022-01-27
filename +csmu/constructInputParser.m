@@ -17,7 +17,7 @@ inputArgs = ip.Args;
 doKeepUnmatched = ip.DoKeepUnmatched;
 
 L = csmu.Logger(fcnName);
-L.warn('This function is deprecated; use `csmu.InputParser.fromSpec(...)`.');
+elL.warn('This function is deprecated; use `csmu.InputParser.fromSpec(...)`.');
 
 outputInputParser = csmu.InputParser.fromSpec(...
    parserSpec, ...

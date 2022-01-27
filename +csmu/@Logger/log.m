@@ -48,95 +48,38 @@ if self.doIndent && self.indentLevel > 0
 else
    makeLogstring = @() sprintf(self.format, name, message);
 end
-logstring = char;
+
+logstring = char();
 if doWindowLog
+   outputId = (level >= csmu.LogLevel.ERROR) + 1;
    logstring = makeLogstring();
-   fprintf ('%s \n', logstring);
+   fprintf(outputId, '%s \n', logstring);
 end
 
-%If currently set log level is too high, just skip this log
-if ~doLog
-   return
-end
-
-% Append new log to log file
-if isempty(logstring), logstring = makeLogstring(); end
-try
-   fid = fopen(self.path, 'a');
-   fprintf (fid, [self.stampFormat, '%s \n'], ...
-      datestr(now, self.datetimeFormat), level, ...
-      sprintf(self.idFormat, self.id), logstring);
-   fclose(fid);
-catch ME_1
-   disp(ME_1);
-end
-end
-
-function str = struct2str(s, sName, preSpaces)
-switch nargin
-   case 1
-      sName = 'struct';
-      preSpaces = 2;
-   case 2
-      preSpaces = 2;
-end
-
-fnames = fieldnames(s);
-
-if ~isscalar(s)
-   str = [{sprintf("%s (%s struct with fields)", sName, ...
-      join(string(size(s)), "x"))}; fnames];
-   str = string(str);
-else
-   nFields = length(fnames);
-   maxLen = 0;
-   for iField = 1:nFields
-      if length(fnames{iField}) > maxLen
-         maxLen = length(fnames{iField});
-      end
+if doLog
+   % Append new log to log file
+   if isempty(logstring)
+      logstring = makeLogstring();
    end
-   
-   str = strings(1, nFields);
-   for iField = 1:nFields
-      x = s.(fnames{iField});
-      
-      if (ischar(x) && isvector(x)) || (isstring(x) && isscalar(x))
-         x = strrep(string(x), '%', '%%%%');
-         if ischar(x)
-            str(iField) = sprintf("'%s'", x);
-         else
-            str(iField) = sprintf('"%s"', x);
-         end
-      elseif isempty(x)
-         str(iField) = "[]";
-      elseif isstruct(x)
-         str(iField) = csmu.struct2str(x, '', preSpaces + 4 + maxLen);
-      elseif (isnumeric(x) || islogical(x)) && isvector(x) ...
-            && length(x) < 20
-         if isscalar(x)
-            str(iField) = string(x);
-         else
-            str(iField) = sprintf("[%s]", join(string(x)));
-         end
-      elseif iscell(x) && isvector(x) && length(x) < 20
-         nVals = length(x);
-         innerStrings = strings(1, length(x));
-         for iVal = 1:nVals
-            innerStrings(iVal) = sprintf("[%s]", join(string(x{iVal})));
-         end
-         str(iField) = sprintf('{%s}', join(innerStrings, ', '));
-      else
-         str(iField) = sprintf("(%s %s array)", ...
-            join(string(size(x)), "x"), class(x));
-      end
-      str(iField) = sprintf("%-*s: %s", maxLen, fnames{iField}, ...
-         str(iField));
+
+   try
+      temp_a = [self.stampFormat, '%s \n'];
+      temp_b = datestr(now, self.datetimeFormat);
+      temp_c = sprintf(self.idFormat, self.id);
+
+      fid = fopen(self.path, 'a');
+      cleanup = onCleanup(@() fclose(fid));
+      fprintf(fid, temp_a, temp_b, level, temp_c, logstring);
+   catch ME_1
+      disp(ME_1);
    end
-   
-   str = [sName, str];
 end
+end
+
+function str = struct2str(varargin)
+str = csmu.struct2str(varargin{:});
 str = cellfun(@(x) strrep(x, '\', '\\\\'), str, 'UniformOutput', false);
-str = join(str, ['\n', repmat(' ', 1, preSpaces)]);
+str = join(str, ['\n', repmat(' ', 1, 2)]);
 str = str{:};
 str = sprintf(str);
 end

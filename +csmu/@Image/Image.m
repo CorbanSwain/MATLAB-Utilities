@@ -236,13 +236,19 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
       end
       
       function out = get.Channels(self)
-         inputArgs = {self.I, self.ChannelDim};
-         if isempty(self.ChannelsCache{2}) ...
-               || ~isequal(self.ChannelsCache{1}, inputArgs)
-            self.ChannelsCache{1} = inputArgs;
-            self.ChannelsCache{2} = self.unstackImage(inputArgs{:});
+         if self.HasChannels
+            inputArgs = {self.I, self.ChannelDim};
+            if isempty(self.ChannelsCache{2}) ...
+                  || ~isequal(self.ChannelsCache{1}, inputArgs)
+               self.ChannelsCache{1} = inputArgs;
+
+               self.ChannelsCache{2} = self.unstackImage(inputArgs{:});
+
+            end
+            out = copy(self.ChannelsCache{2});
+         else
+            out = {};
          end
-         out = copy(self.ChannelsCache{2});
       end
       
       function set.Channels(self, varargin)
@@ -293,6 +299,10 @@ classdef Image < csmu.mixin.AutoDeal & csmu.Object
          else            
             self.I = reshape(self.I, varargin{:});
          end
+      end
+
+      function toFullScaleFloat(self)
+         self.I = csmu.fullscaleim(self.I);
       end
       
    end

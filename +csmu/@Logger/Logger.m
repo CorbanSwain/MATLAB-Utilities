@@ -131,6 +131,7 @@ classdef Logger < handle
             if strcmpi('clear', val) || isempty(val)
                pVal = [];
             else
+               val = csmu.LogLevel(val);
                mustBeInstance(val, 'csmu.LogLevel');
                pVal = val;
             end
@@ -144,6 +145,7 @@ classdef Logger < handle
             if strcmpi('clear', val) || isempty(val)
                pVal = [];
             else
+               val = csmu.LogLevel(val);
                mustBeInstance(val, 'csmu.LogLevel');
                pVal = val;
             end

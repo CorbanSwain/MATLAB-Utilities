@@ -1,10 +1,12 @@
-function I = loadAnyImage(imPath, varargin)
+function I = loadAnyImage(imPath, nvInputs)
+
+arguments
+   imPath
+   nvInputs.Slice = []
+end
+
 funcName = strcat('csmu.', mfilename);
 L = csmu.Logger(funcName);
-
-parserSpec = {{'p', 'Slice', []}};
-ip = csmu.constructInputParser(parserSpec, 'Name', funcName, 'Args', varargin);
-ip = ip.Results;
 
 [~, ~, fileext] = fileparts(imPath);
 L.assert(logical(exist(imPath, 'file')), 'Image file does not exist.');
@@ -27,7 +29,7 @@ switch lower(fileext)
       I = niftiread(imPath);
       
    case {'.tif', 'tiff'}
-      I = csmu.volread(imPath, 'Slice', ip.Slice);
+      I = csmu.volread(imPath, Slice=nvInputs.Slice);
       
    otherwise
       try

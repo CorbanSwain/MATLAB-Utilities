@@ -27,31 +27,90 @@
 %   See also OTHERCLASS.
 
 classdef ImageEvalMethod
+
    enumeration
-      RelativeSumTruthy
-      RelativeSumFalsy
-      RelativeCountTruthy
-      RelativeCountFalsy
-      SumTruthyRateCurve
-      CountTruthyRateCurve
-      FakeSNR
-      PSNR
-      Correlation
-      DBSNR      
-      Resolution
-      MinVal
-      MaxVal
-      FractionNonZero
-      FractionFinite
-      Histogram
-      LogHistogram
+      RelativeSumTruthy ...
+         (true, 'double', 'Relative Sum Dark', 'a.u.', ...
+         0)
+      RelativeSumFalsy ...
+         (true, 'double', 'Relative Sum Light', 'a.u.', ...
+         0)
+      RelativeCountTruthy ...
+         (true, 'double', 'Relative Count Dark', 'a.u.', ...
+         0)
+      RelativeCountFalsy ...
+         (true, 'double', 'Relative Count Light', 'a.u.', ...
+         0)
+      FracMatchTruthy ...
+         (true, 'double', 'Matched, Light Cutoff', 'fraction', ...
+         0)
+      FracMatchFalsy ...
+         (true, 'double', 'Matched, Dark Cutoff', 'fraction', ...
+         0)
+      CountRateCurve ...
+         (true, 'struct', 'Observed Dark vs. Expected Dark', 'fraction', ...
+         struct(FracDark=[], ObservedDark=[], AbsABC=[]))
+      MatchRateCurve ...
+         (true, 'struct', 'Binary Matched vs. Expected Dark', 'fraction', ...
+         struct(FracDark=[], FracMatched =[], AUC=[]))
+      FakeSNR ...
+         (true, 'double', 'Sum Truthy / Sum Falsy', 'dB', ...
+         0)
+      PSNR ...
+         (true, 'double', 'Peak Signal-to-Noise Ratio', 'dB', ...
+         0)
+      Correlation ...
+         (true, 'struct', 'Correlation', 'a.u.', ...
+         struct(Correlation=[], CorrMat=[]))
+      DBSNR ...
+         (true, 'double', 'Signal-to-Noise Ratio', 'dB', ...
+         0)
+      Resolution ...
+         (false, 'struct', 'Resolution', 'voxels', ...
+         struct(Median=[], Data=[]))
+      MinVal ...
+         (false, 'double', 'Minimum Value', 'i.u.', ...
+         0)
+      MaxVal ...
+         (false, 'double', 'Maximum Value', 'i.u.', ...
+         0)
+      FractionNonZero ...
+         (false, 'double', 'Non Zero Voxels', 'fraction', ...
+         0)
+      FractionFinite ...
+         (false, 'double', 'Finite Voxels', 'fraction', ...
+         0)
+      Histogram ...
+         (false, 'struct', 'Intensity Histogram', 'counts', ...
+         struct(BinCounts=[], BinEdges=[], BinLocs=[]))
+      LogHistogram ...
+         (false, 'struct', 'Log Limits Intensity Histogram', 'counts', ...
+         struct(BinCounts=[], BinEdges=[], BinLocs=[], BinEdgesLog=[], ...
+         BinLocsLog=[]))
+   end
+
+   properties
+      RequiresReferenceImage
+      DataType
+      FullName
+      PrimaryUnits
+      InitResultValue
    end
 
    properties (Dependent)
-      RequiresReferenceImage
+      Name
    end
 
    methods 
+
+      function self = ImageEvalMethod(...
+            doesRequireRef, resultDataType, fullName, units, initValue)
+         self.RequiresReferenceImage = doesRequireRef;
+         self.DataType = resultDataType;
+         self.FullName = fullName;
+         self.PrimaryUnits = units;
+         self.InitResultValue = initValue;         
+      end
 
       function result = evaluate(self, I, varargin)
          %% Meta Setup
@@ -72,52 +131,72 @@ classdef ImageEvalMethod
 
          if self.RequiresReferenceImage
             result = self.evaluateWithRef(I, varargin{:});
-            return
-         end        
+         else
+            switch self
+               case 'Resolution'
+                  result = struct();
+                  [result.Median, result.Data] = ...
+                     self.evalResolution(I, inputs);
 
-         switch self
-            case 'Resolution'
-               result = struct();
-               [result.Median, result.Data] = self.evalResolution(I, inputs);
+               case 'MinVal'
+                  result = min(I, [], 'all');
 
-            case 'MinVal'
-               result = min(I, [], 'all');
+               case 'MaxVal'
+                  result = max(I, [], 'all');
 
-            case 'MaxVal'
-               result = max(I, [], 'all');
+               case 'FractionNonZero'
+                  result = sum(I > 0, 'all') / numel(I);
 
-            case 'FractionNonZero'
-               result = sum(I > 0, 'all') / numel(I);
+               case 'FractionFinite'
+                  result = sum(isfinite(I), 'all') / numel(I);
 
-            case 'FractionFinite'
-               result = sum(isfinite(I), 'all') / numel(I);
+               case 'Histogram'
+                  [counts, binLocs] = imhist(I, inputs.NumHistBins);
+                  binEdges = csmu.imhistLocs2Edges(binLocs);
 
-            case 'Histogram'               
-               [counts, binLocs] = imhist(I, inputs.NumHistBins);
-               binEdges = csmu.imhistLocs2Edges(binLocs);
-               
-               result = struct();
-               result.BinCounts = counts;
-               result.BinEdges = binEdges;
+                  result = struct();
+                  result.BinCounts = counts;
+                  result.BinEdges = binEdges;
+                  result.BinLocs = binLocs;
 
-            case 'LogHistogram'
-               IRescaled = csmu.fullscaleim(I);
-               [IRemaped, minClip, maxClip] = csmu.logremap(IRescaled);
-               [counts, binLocs] = imhist(IRemaped, inputs.NumHistBins);
-               binEdges = csmu.imhistLocs2Edges(binLocs);
-               binEdgesUnmaped = csmu.logremap(binEdges, minClip, maxClip, ...
-                  DoInvert=true);
-               
-               result = struct();
-               result.BinCounts = counts;
-               result.BinEdges = binEdgesUnmaped;
-               result.BinEdgesRaw = binEdges;
+               case 'LogHistogram'
+                  IRescaled = csmu.fullscaleim(I);
+                  [IRemaped, minClip, maxClip] = csmu.logremap(IRescaled);
+                  [counts, binLocs] = imhist(IRemaped, inputs.NumHistBins);
+                  binEdges = csmu.imhistLocs2Edges(binLocs);
+                  binLocsUnmaped = csmu.logremap(binLocs, minClip, maxClip, ...
+                     DoInvert=true);
+                  binEdgesUnmaped = csmu.logremap(binEdges, minClip, ...
+                     maxClip, DoInvert=true);
 
-            otherwise
-               L.error('Unexpected ImageEvalMethod passed, %s.', ...
-                  self)
+                  result = struct();
+                  result.BinCounts = counts;
+                  result.BinEdges = binEdgesUnmaped;
+                  result.BinLocs = binLocsUnmaped;
+                  result.BinEdgesLog = binEdges;
+                  result.BinLocsLog = binLocs;
+
+               otherwise
+                  L.error('Unexpected ImageEvalMethod passed, %s.', ...
+                     self)
+            end
          end
          
+
+         L.assert(isa(result, self.DataType), ...
+            'Result is of class ''%s'', expected ''%s''', ...
+            class(result), self.DataType);
+
+         switch self.DataType
+            case 'struct'
+               L.assert(csmu.doFieldsMatch(result, self.InitResultValue), ...
+                  ['Unexpected mismatch between result struct and expected ' ...
+                  'struct.']);
+
+            case 'double'
+               L.assert(isscalar(result), ...
+                  'Expected result output to be a scalar double.');
+         end
       end
 
       function result = evaluateWithRef(self, I, varargin)
@@ -126,12 +205,14 @@ classdef ImageEvalMethod
          fcnName = strcat('analysis.', mfilename, '.evaluateWithRef');
 
          %%% Logging
-         % L = csmu.Logger(fcnName);
+         L = csmu.Logger(fcnName);
 
          %%% Input Handling
          ip = csmu.InputParser.fromSpec({
             {'rp', 'ReferenceImage'}
             {'p', 'NumCurvePoints', 16}
+            {'p', 'PrctCutoff', []}
+            {'p', 'FractionCutoff', []}
             });
          ip.DoKeepUnmatched = true;
          ip.FunctionName = fcnName;
@@ -143,85 +224,115 @@ classdef ImageEvalMethod
          repassedInputs = inputs;
          repassedInputs = rmfield(repassedInputs, 'ReferenceImage');
 
-         try
-            clsmax = double(intmax(class(I)));
-            L.assert(strcmp(class(I), class(R)), ...
-               ['If int type, image and reference must be of the same int ' ...
-               'type.']);
-         catch
-            clsmax = 1;
-         end
+
+         L.assert(strcmp(class(I), class(R)), ...
+            ['If int type, image and reference must be of the same int ' ...
+            'type.']);
+
 
          switch self
             case 'RelativeSumTruthy'
                repassedInputs.Method = 'values';
                repassedInputs.DoSumTrue = true;
+               repassedInputs.DoRelative = true;
                result = self.binaryEvalHelper(I, R, repassedInputs);
 
             case 'RelativeSumFalsy'
                repassedInputs.Method = 'values';
                repassedInputs.DoSumTrue = false;
+               repassedInputs.DoRelative = true;
                result = self.binaryEvalHelper(I, R, repassedInputs);
 
             case 'RelativeCountTruthy'
                repassedInputs.Method = 'counts';
                repassedInputs.DoSumTrue = true;
+               repassedInputs.DoRelative = true;
                result = self.binaryEvalHelper(I, R, repassedInputs);
 
             case 'RelativeCountFalsy'
                repassedInputs.Method = 'counts';
                repassedInputs.DoSumTrue = false;
+               repassedInputs.DoRelative = true;
                result = self.binaryEvalHelper(I, R, repassedInputs);
 
-            case 'SumTruthyRateCurve'
-               repassedInputs.Method = 'values';
+            case 'FracMatchTruthy'
+               repassedInputs.Method = 'match';
                repassedInputs.DoSumTrue = true;
-              
-               samplePoints = linspace(0, 1, inputs.NumCurvePoints);
-               sumPoints = zeros(1, inputs.NumCurvePoints);
-               for iPoint = 1:inputs.NumCurvePoints
-                  repassedInputs.FractionCutoff = samplePoints(iPoint);
-                  sumPoints(iPoint) = ...
-                     self.binaryEvalHelper(I, R, repassedInputs);
-               end
-               result.ExpectedRatio = samplePoints;
-               result.ObservedRatio = sumPoints;
 
-            case 'CountTruthyRateCurve'
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
+            case 'FracMatchFalsy'
+               repassedInputs.Method = 'match';
+               repassedInputs.DoSumTrue = false;
+
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
+            case 'CountRateCurve'
                repassedInputs.Method = 'counts';
-               repassedInputs.DoSumTrue = true;
+               repassedInputs.DoSumTrue = false;
 
                samplePoints = linspace(0, 1, inputs.NumCurvePoints);
-               sumPoints = zeros(1, inputs.NumCurvePoints);
-               for iPoint = 1:inputs.NumCurvePoints
-                  repassedInputs.FractionCutoff = samplePoints(iPoint);
-                  sumPoints(iPoint) = ...
-                     self.binaryEvalHelper(I, R, repassedInputs);
-               end
-               result.ExpectedRatio = samplePoints;
-               result.ObservedRatio = sumPoints;
+               repassedInputs.FractionCutoff = samplePoints;
 
-            case 'SumOutside'
-               rawVal = self.evalSumOutside(I, R, repassedInputs);
-               result = rawVal / clsmax;
+               countPoints = self.binaryEvalHelper(I, R, repassedInputs);
+
+               result.FracDark = samplePoints;
+               result.ObservedDark = countPoints;
+               result.AbsABC = trapz(samplePoints, ...
+                  abs(countPoints - samplePoints));
+
+            case 'MatchRateCurve'
+               repassedInputs.Method = 'match';
+               repassedInputs.DoSumTrue = false;
+
+               samplePoints = linspace(0, 1, inputs.NumCurvePoints);
+               repassedInputs.FractionCutoff = samplePoints;
+
+               matchFracCurve = self.binaryEvalHelper(I, R, repassedInputs);
+
+               result.FracDark = samplePoints;
+               result.FracMatched = matchFracCurve;
+               result.AUC = trapz(samplePoints, matchFracCurve);
 
             case 'FakeSNR'
-               insideSelect = boolean(R);
-               signal = sum(I(insideSelect), 'all') ./ numel(R);
-               noise = sum(I(~insideSelect), 'all') ./ numel(R);
+               if islogical(R)
+                  truthySelect = R;
+               else
+                  if ~isempty(inputs.FractionCutoff)
+                     prctCutoff = inputs.FractionCutoff * 100;
+                  elseif ~isempty(inputs.PrctCutoff)
+                     prctCutoff = inputs.PrctCutoff;
+                  else
+                     prctCutoff = 50;
+                  end
+
+                  prctileVal = prctile(R, prctCutoff, 'all');
+
+                  minR = min(R, [], 'all');
+                  if prctileVal <= minR
+                     truthySelect = true(size(R));
+                  else
+                     truthySelect = R > prctileVal;
+                  end
+               end                              
+
+               signal = sum(I(truthySelect), 'all');
+               noise = sum(I(~truthySelect), 'all');
                result = 20 * log10(signal / noise);
 
             case 'PSNR'
                if ~isfloat(I), I = double(I); end
                if ~isfloat(R), R = double(R); end
+               maxR = max(R, [], 'all');
                rmse = @(x, y) sqrt(mean((x(:) - y(:)) .^ 2));
-               result = 20 * log10(clsmax / rmse(I, R));
+               result = 20 * log10(maxR/ rmse(I, R));
 
             case 'Correlation'
                if ~isfloat(I), I = double(I); end
                if ~isfloat(R), R = double(R); end
                corrmat = corrcoef(I(:), R(:));
-               result = corrmat(1, 2);
+               result.Correlation = corrmat(1, 2);
+               result.CorrMat = corrmat;
 
             case 'DBSNR'
                if ~isfloat(I), I = double(I); end
@@ -236,38 +347,41 @@ classdef ImageEvalMethod
       end
 
       %% Get/Set Methods
-      function out = get.RequiresReferenceImage(self)
-         switch self
-            case {'RelativeSumTruthy', ...
-                  'RelativeSumFalsy', ...
-                  'RelativeCountTruthy', ...
-                  'RelativeCountFalsy', ...
-                  'SumTruthyRateCurve', ...
-                  'CountTruthyRateCurve', ...
-                  'FakeSNR', ...
-                  'PSNR', ...
-                  'Correlation', ...
-                  'DBSNR'}
-               out = true;
-            otherwise
-               out = false;
-         end
+      function out = get.Name(self)
+         out = char(string(self));
       end
 
    end
 
    methods (Static)
       function output = runAllMethods(I, varargin)
-         [methods, methodNames] = enumeration('csmu.ImageEvalMethod');
+         methods = enumeration('csmu.ImageEvalMethod');
+         output = csmu.ImageEvalMethod.runMethods(methods, I, varargin{:});
+      end
+
+      function output = runMethods(methods, I, varargin)
+         fcnName = strcat('csmu.', mfilename, '.runMethods');
+         L = csmu.Logger(fcnName);
+
+         ip = csmu.InputParser.fromSpec({ ...
+            {'p', 'DoFailOnError', false, 'logicalScalar'}
+            });
+         ip.FunctionName = fcnName;
+         ip.DoKeepUnmatched = true;
+         ip.parse(varargin{:});
+         inputs = ip.Results;
+
+         L.debug('Beginning series of image evaluations.');
 
          output = struct();
-         for iMethod = 1:length(methods)
-            method = methods(iMethod);
-            methodName = methodNames{iMethod};
+         for iMethod = 1:length(methods)            
+            method = csmu.ImageEvalMethod(methods(iMethod));
+
+            L.debug('Evaluating image with method: "%s"', method.Name);
+
             methodOutputStruct = struct();
             methodOutputStruct.Method = method;
             try
-               fprintf('Attempting method %s\n', methodName)
                result = method.evaluate(I, varargin{:});
                methodOutputStruct.Result = result;
                methodOutputStruct.DidFail = false;
@@ -275,9 +389,13 @@ classdef ImageEvalMethod
                methodOutputStruct.DidFail = true;
                methodOutputStruct.errorId = ME.identifier;
                methodOutputStruct.errorMsg = ME.message;
+
+               if inputs.DoFailOnError
+                  rethrow(ME);
+               end
             end
 
-            output.(methodName) = methodOutputStruct;
+            output.(method.Name) = methodOutputStruct;
          end
       end
 
@@ -287,11 +405,12 @@ classdef ImageEvalMethod
          % L = csmu.Logger(fcnName);
 
          ip = csmu.InputParser.fromSpec({
-            {'rp', 'Method', {'values', 'counts'}}           
+            {'rp', 'Method', {'values', 'counts', 'match'}}           
 
             {'p', 'PrctCutoff', []}
             {'p', 'FractionCutoff', []}
-            {'p', 'DoSumTrue', true}           
+            {'p', 'DoSumTrue', true}
+            {'p', 'DoRelative', false}
             });         
          ip.FunctionName = fcnName;
          ip.DoKeepUnmatched = true;
@@ -299,39 +418,121 @@ classdef ImageEvalMethod
          inputs = ip.Results;
 
          if ~isempty(inputs.FractionCutoff)
-            prctCutoff = inputs.FractionCutoff * 100;
+            prctCutoff = csmu.bound(inputs.FractionCutoff * 100, 0, 100);
          elseif ~isempty(inputs.PrctCutoff)
             prctCutoff = inputs.PrctCutoff;
          else
             prctCutoff = 50;
-         end
+         end       
+        
+         prctileVals = prctile(R, prctCutoff, 'all');
+         numMeasures = length(prctileVals);
 
-         if inputs.PrctCutoff == 0
-            mask = boolean(R);
-            prctileVal = 0.5;
-         else
-            prctileVal = prctile(R, prctCutoff, 'all');
-            mask = R >= prctileVal;            
-         end
+         useMaskCriterion = any(strcmpi(inputs.Method, {'values', 'match'})) ...
+            || inputs.DoRelative;
 
-         if ~inputs.DoSumTrue
-            mask = ~mask;
-         end
+         if useMaskCriterion
+            masks = cell(1, numMeasures);
+            sizeR = size(R);
 
-         switch inputs.Method
-            case 'values'
-               % refSumFrac = sum(R(mask), 'all') / sum(R, 'all');
-               sumFrac = sum(I(mask), 'all') / sum(I, 'all');
+            minR = min(R, [], 'all');
+            maxR = max(R, [], 'all');
+            for iMeasure = 1:numMeasures
+               masks{iMeasure} = false(sizeR);
+               prctileVal = prctileVals(iMeasure);
 
-            case 'counts'
-               % refSumFrac = sum(mask, 'all') / numel(R);
                if inputs.DoSumTrue
-                  sumFrac = sum(I >= prctileVal, 'all') / numel(I);
+                  if (prctileVal <= minR) && (prctCutoff(iMeasure) <= 0)
+                     masks{iMeasure}(:) = true;
+                  else
+                     masks{iMeasure} = R > prctileVal;
+                  end
                else
-                  sumFrac = sum(I < prctileVal, 'all') / numel(I);
+                  if prctileVal >= maxR && (prctCutoff(iMeasure) >= 100)
+                     masks{iMeasure}(:) = true;
+                  else
+                     masks{iMeasure} = R < prctileVal;
+                  end
                end
+            end
          end
-         result = sumFrac;
+       
+         if any(strcmpi(inputs.Method, {'counts', 'match'}))
+            numelI = numel(I);
+            maxI = max(I, [], 'all');
+            minI = min(I, [], 'all');
+
+            if strcmpi(inputs.Method, 'match')
+               sizeI = size(I);
+            end
+         end
+         
+         result = zeros(1, numMeasures);
+         for iMeasure = 1:numMeasures
+            if useMaskCriterion
+               refMask = masks{iMeasure};
+            end
+
+            switch inputs.Method
+               case 'values'                     
+                  sumFrac = sum(I(refMask), 'all') / sum(I, 'all');
+
+                  if inputs.DoRelative
+                     refSumFrac = sum(R(refMask), 'all') / sum(R, 'all');
+                     result(iMeasure) = sumFrac / refSumFrac;
+                  else
+                     result(iMeasure) = sumFrac;
+                  end
+
+               case 'counts'
+                  prctileVal = prctileVals(iMeasure);
+
+                  if inputs.DoSumTrue                     
+                     if (prctileVal == minI) && (prctCutoff(iMeasure) <= 0)
+                        countFrac = 1;
+                     else
+                        countFrac = sum(I > prctileVal, 'all') / numelI;
+                     end
+                  else
+                     if (prctileVal == maxI) && (prctCutoff(iMeasure) >= 100)
+                        countFrac = 1;
+                     else
+                        countFrac = sum(I < prctileVal, 'all') / numelI;
+                     end
+                  end
+
+                  if inputs.DoRelative
+                     refCountFrac = sum(refMask, 'all') / numel(R);
+                     result(iMeasure) = countFrac / refCountFrac;
+                  else
+                     result(iMeasure) = countFrac;
+                  end
+
+               case 'match'
+                  prctileVal = prctileVals(iMeasure);
+
+                  testMask = false(sizeI);
+                  if inputs.DoSumTrue                     
+                     if prctileVal <= minI
+                        testMask(:) = true;
+                     else
+                        testMask = I > prctileVal;
+                     end
+                  else
+                     if prctileVal >= maxI
+                        testMask(:) = true;
+                     else
+                        testMask = I < prctileVal;
+                     end
+                  end
+
+                  matchedMask = ~xor(testMask, refMask);
+                  fracMatched = sum(matchedMask, 'all') / numelI;
+                  result(iMeasure) = fracMatched;
+            end
+
+           
+         end
       end
 
       function [varargout] = evalResolution(I, varargin)
@@ -377,6 +578,7 @@ classdef ImageEvalMethod
 
          if nLocations == 0
             medianRes = [NaN, NaN, NaN];
+            varargout = {medianRes, []};
             return
          end
 
@@ -441,4 +643,5 @@ classdef ImageEvalMethod
       end
 
    end
+
 end

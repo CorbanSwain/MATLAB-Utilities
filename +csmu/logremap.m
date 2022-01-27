@@ -5,7 +5,7 @@ arguments
    minClip double {mustBeScalarOrEmpty} = []
    maxClip double {mustBeScalarOrEmpty} = []
    nvInputs.DoInvert (1, 1) logical = false
-   nvInputs.Base (1, 1) double = 10
+   nvInputs.Base (1, 1) double = exp(1)
 end
 
 base = nvInputs.Base;
@@ -57,8 +57,8 @@ switch nargout
 end
 end
 
-function  x = unmap(y, base, minClip, maxClip)
 
+function  x = unmap(y, base, minClip, maxClip)
 arguments
    y
    base
