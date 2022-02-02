@@ -1,5 +1,5 @@
 function X = bound(X, minVal, maxVal, varName)
-%BOUND Bound between a min and max.
+%BOUND Bound values in an array between a min and/or max value.
 %
 % BOUND(X, min, max) will reduce all items in X greater than max to max,
 % and less than min to min. X can be a scalar, vector, or matrix. min and

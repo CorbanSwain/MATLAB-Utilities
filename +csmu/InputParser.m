@@ -35,8 +35,12 @@ classdef InputParser < inputParser
                ' were not provided: ''%s''.'), ...
                csmu.cell2csl(join(self.MissingRequiredParams, ''', ''')));
             ME = MException(errId, errMsg);
-            L = csmu.Logger(fcnName);
-            L.logException(csmu.LogLevel.ERROR, ME);
+            try
+               ME.throwAsCaller()
+            catch ME2
+               L = csmu.Logger(fcnName);
+               L.logException(csmu.LogLevel.ERROR, ME2);
+            end
             ME.throwAsCaller();
          end
       end

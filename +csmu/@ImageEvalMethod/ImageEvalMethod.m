@@ -31,55 +31,55 @@ classdef ImageEvalMethod
    enumeration
       RelativeSumTruthy ...
          (true, 'double', 'Relative Sum Dark', 'a.u.', ...
-         0)
+         NaN)
       RelativeSumFalsy ...
          (true, 'double', 'Relative Sum Light', 'a.u.', ...
-         0)
+         NaN)
       RelativeCountTruthy ...
          (true, 'double', 'Relative Count Dark', 'a.u.', ...
-         0)
+         NaN)
       RelativeCountFalsy ...
          (true, 'double', 'Relative Count Light', 'a.u.', ...
-         0)
+         NaN)
       FracMatchTruthy ...
          (true, 'double', 'Matched, Light Cutoff', 'fraction', ...
-         0)
+         NaN)
       FracMatchFalsy ...
          (true, 'double', 'Matched, Dark Cutoff', 'fraction', ...
-         0)
+         NaN)
       CountRateCurve ...
          (true, 'struct', 'Observed Dark vs. Expected Dark', 'fraction', ...
-         struct(FracDark=[], ObservedDark=[], AbsABC=[]))
+         struct(FracDark=[], ObservedDark=[], AbsABC=NaN))
       MatchRateCurve ...
          (true, 'struct', 'Binary Matched vs. Expected Dark', 'fraction', ...
-         struct(FracDark=[], FracMatched =[], AUC=[]))
+         struct(FracDark=[], FracMatched =[], AUC=NaN))
       FakeSNR ...
          (true, 'double', 'Sum Truthy / Sum Falsy', 'dB', ...
-         0)
+         NaN)
       PSNR ...
          (true, 'double', 'Peak Signal-to-Noise Ratio', 'dB', ...
-         0)
+         NaN)
       Correlation ...
          (true, 'struct', 'Correlation', 'a.u.', ...
-         struct(Correlation=[], CorrMat=[]))
+         struct(Correlation=NaN, CorrMat=[]))
       DBSNR ...
          (true, 'double', 'Signal-to-Noise Ratio', 'dB', ...
-         0)
+         NaN)
       Resolution ...
          (false, 'struct', 'Resolution', 'voxels', ...
-         struct(Median=[], Data=[]))
+         struct(Median=NaN, Data=[]))
       MinVal ...
          (false, 'double', 'Minimum Value', 'i.u.', ...
-         0)
+         NaN)
       MaxVal ...
          (false, 'double', 'Maximum Value', 'i.u.', ...
-         0)
+         NaN)
       FractionNonZero ...
          (false, 'double', 'Non Zero Voxels', 'fraction', ...
-         0)
+         NaN)
       FractionFinite ...
          (false, 'double', 'Finite Voxels', 'fraction', ...
-         0)
+         NaN)
       Histogram ...
          (false, 'struct', 'Intensity Histogram', 'counts', ...
          struct(BinCounts=[], BinEdges=[], BinLocs=[]))
@@ -123,6 +123,7 @@ classdef ImageEvalMethod
          %%% Input Handling
          ip = csmu.InputParser.fromSpec({
             {'p', 'NumHistBins', 64, @csmu.validators.integerValue}
+            {'p', 'ImUnscaled', []}
             });
          ip.DoKeepUnmatched = true;
          ip.FunctionName = fcnName;
@@ -132,26 +133,33 @@ classdef ImageEvalMethod
          if self.RequiresReferenceImage
             result = self.evaluateWithRef(I, varargin{:});
          else
+            IUnscaled = inputs.ImUnscaled;
+            if isempty(IUnscaled)
+               IUnscaled = I;
+            end
+
             switch self
                case 'Resolution'
+                  IRescaled = csmu.fullscaleim(I);
+
                   result = struct();
                   [result.Median, result.Data] = ...
-                     self.evalResolution(I, inputs);
+                     self.evalResolution(IRescaled, inputs);
 
                case 'MinVal'
-                  result = min(I, [], 'all');
+                  result = min(IUnscaled, [], 'all');
 
                case 'MaxVal'
-                  result = max(I, [], 'all');
+                  result = max(IUnscaled, [], 'all');
 
                case 'FractionNonZero'
-                  result = sum(I > 0, 'all') / numel(I);
+                  result = sum(IUnscaled > 0, 'all') / numel(I);
 
                case 'FractionFinite'
                   result = sum(isfinite(I), 'all') / numel(I);
 
                case 'Histogram'
-                  [counts, binLocs] = imhist(I, inputs.NumHistBins);
+                  [counts, binLocs] = imhist(IUnscaled, inputs.NumHistBins);
                   binEdges = csmu.imhistLocs2Edges(binLocs);
 
                   result = struct();
@@ -161,6 +169,7 @@ classdef ImageEvalMethod
 
                case 'LogHistogram'
                   IRescaled = csmu.fullscaleim(I);
+
                   [IRemaped, minClip, maxClip] = csmu.logremap(IRescaled);
                   [counts, binLocs] = imhist(IRemaped, inputs.NumHistBins);
                   binEdges = csmu.imhistLocs2Edges(binLocs);
@@ -184,7 +193,7 @@ classdef ImageEvalMethod
          
 
          L.assert(isa(result, self.DataType), ...
-            'Result is of class ''%s'', expected ''%s''', ...
+            'Result is of class ''%s'', expected ''%s''.', ...
             class(result), self.DataType);
 
          switch self.DataType
@@ -306,7 +315,7 @@ classdef ImageEvalMethod
                      prctCutoff = 50;
                   end
 
-                  prctileVal = prctile(R, prctCutoff, 'all');
+                  prctileVal = self.cachedPrctile(R, prctCutoff, 'all');
 
                   minR = min(R, [], 'all');
                   if prctileVal <= minR
@@ -385,14 +394,17 @@ classdef ImageEvalMethod
                result = method.evaluate(I, varargin{:});
                methodOutputStruct.Result = result;
                methodOutputStruct.DidFail = false;
+               L.debug('Image evaluation succeded.')
             catch ME
                methodOutputStruct.DidFail = true;
                methodOutputStruct.errorId = ME.identifier;
                methodOutputStruct.errorMsg = ME.message;
+               
+               L.debug('Image evaluation failed.')
 
                if inputs.DoFailOnError
                   rethrow(ME);
-               end
+               end               
             end
 
             output.(method.Name) = methodOutputStruct;
@@ -425,7 +437,8 @@ classdef ImageEvalMethod
             prctCutoff = 50;
          end       
         
-         prctileVals = prctile(R, prctCutoff, 'all');
+         prctileVals = csmu.ImageEvalMethod.cachedPrctile(...
+            R, prctCutoff, 'all');
          numMeasures = length(prctileVals);
 
          useMaskCriterion = any(strcmpi(inputs.Method, {'values', 'match'})) ...
@@ -641,6 +654,9 @@ classdef ImageEvalMethod
                varargout = {medianRes, rawValues};
          end
       end
+
+      %% Method Signatures (defined in seperate files)
+      out = cachedPrctile(I, varargin)
 
    end
 
