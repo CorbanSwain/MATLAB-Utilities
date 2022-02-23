@@ -31,6 +31,7 @@ classdef Transform < handle & matlab.mixin.Copyable
       IsTrivial
       Inverse
       NumDims
+      DoInverse
       
       % lowercase versions for backward compatibility
       rotation
@@ -380,6 +381,14 @@ classdef Transform < handle & matlab.mixin.Copyable
          self.OutputView = val;
       end
       
+      function out = get.DoInverse(self)
+         out = self.DoReverse;
+      end
+
+      function set.DoInverse(self, val)
+         self.DoReverse = val;
+      end
+
       function out = mtimes(self, obj)
          out = csmu.Transform();
          if self.NumDims == 2

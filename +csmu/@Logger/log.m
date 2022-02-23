@@ -51,7 +51,7 @@ end
 
 logstring = char();
 if doWindowLog
-   outputId = (level >= csmu.LogLevel.ERROR) + 1;
+   outputId = (level >= csmu.LogLevel.WARN) + 1;
    logstring = makeLogstring();
    fprintf(outputId, '%s \n', logstring);
 end
@@ -70,6 +70,7 @@ if doLog
       fid = fopen(self.path, 'a');
       cleanup = onCleanup(@() fclose(fid));
       fprintf(fid, temp_a, temp_b, level, temp_c, logstring);
+      clear('cleanup');
    catch ME_1
       disp(ME_1);
    end

@@ -142,9 +142,15 @@ classdef ResolutionMeasurement < csmu.Object
          %%% Window Scale
          xzWindowed = xz(xzWindow{:});
          xzScale = [min(xzWindowed(:)), max(xzWindowed(:))];
+         if xzScale(1) >= xzScale(2)
+            xzScale = mean(xzScale, 'all') + [-0.5, 0.5];
+         end
          
          yzWindowed = yz(yzWindow{:});
          yzScale = [min(yzWindowed(:)), max(yzWindowed(:))];
+         if yzScale(1) >= yzScale(2)
+            yzScale = mean(yzScale, 'all') + [-0.5, 0.5];
+         end
          
          %% Plotting
          L.info('\tGenerating Plot');
@@ -405,7 +411,23 @@ classdef ResolutionMeasurement < csmu.Object
          yzScale = csmu.range(yzWindowed, 'all');
          
          allScale = csmu.range(cat(2, xyScale, xzScale, yzScale));
+
          defaultRange = [0, allScale(2)];
+         
+         if allScale(1) >= allScale(2)
+            colorDisplayScale = csmu.range(self.Image, 'all');
+
+            if colorDisplayScale(1) >= colorDisplayScale(2)
+               if colorDisplayScale(1) < 0
+                  colorDisplayScale = ...
+                     mean(colorDisplayScale, 'all') + [-0.5, 0.5];
+               else
+                  colorDisplayScale = [0, 1];
+               end
+            end
+         else
+            colorDisplayScale = allScale;
+         end
          
          %%% Plot Component and Property Computations
          displayRangeExpansionFactor = 0.02;         
@@ -578,7 +600,7 @@ classdef ResolutionMeasurement < csmu.Object
          %%% Plot Templates
          imPlotTemplate = csmu.ImagePlot();
          imPlotTemplate.Colormap = cmap;
-         imPlotTemplate.ColorLimits = allScale;
+         imPlotTemplate.ColorLimits = colorDisplayScale;
          
          linePlotTemplate = csmu.LinePlot();
          linePlotTemplate.LineSpec = {'-'};

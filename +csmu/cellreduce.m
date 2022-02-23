@@ -18,10 +18,13 @@ else
       switch ME.identifier
          case 'MATLAB:catenate:dimensionMismatch'
             errorId = 'CSMU:cellreduce:dimensionMismatch';
-            msg = strcat('All array arguments must have equal lengths', ...
-               ' (passed lengths were: [%s]).');
-            passedLengths = cellfun(@(x) length(x), varargin(1:(end - 1)));
-            ME = ME.addCause(MException(errorId, msg, num2str(passedLengths)));
+            msg = strcat(['All array arguments cellreduce must be row vector ' ...
+               'cell arrays of equal lengths (passed sizes were: [%s]).']);
+            passedSizeStrs = ...
+               csmu.cellmap(@(x) ['[' num2str(size(x)) ']'], ...
+               varargin(1:(end - 1)));
+            ME = ME.addCause(...
+               MException(errorId, msg, cell2mat(join(passedSizeStrs, ', '))));
       end
       throw(ME);
    end

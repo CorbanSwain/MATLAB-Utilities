@@ -54,8 +54,28 @@ classdef AxisConfiguration < csmu.mixin.DynamicShadow & csmu.mixin.AutoDeal
          currentProp = 'Title';
          addToSpecialProps(currentProp);
          if ~isempty(self.Title)
-            title(axisHandle, self.Title, 'Interpreter', ...
-               self.TitleInterpreter);
+            if isstruct(self.Title)
+               titleArgsStruct = self.Title;
+               try
+                  titleText = titleArgsStruct.String;
+               catch ME
+                  newException = MException(...
+                     'csmu:csplot:image:StringMissingInTitleSpec', ...
+                     ['`String` property must be provided when passing a ' ...
+                     'title specification struct.']);
+                  ME.addCause(newException);
+                  rethrow(ME);
+               end
+               titleArgsStruct = rmfield(titleArgsStruct, 'String');
+               if ~any(strcmpi(fieldnames(titleArgsStruct), 'Interpreter'))
+                  titleArgsStruct.Interpreter = self.TitleInterpreter;
+               end
+               argsCell_temp = namedargs2cell(titleArgsStruct);
+               title(axisHandle, titleText, argsCell_temp{:});
+            else
+               title(axisHandle, self.Title, 'Interpreter', ...
+                  self.TitleInterpreter);
+            end
          end
          
          currentProp = {'XLim', 'YLim', 'ZLim'};

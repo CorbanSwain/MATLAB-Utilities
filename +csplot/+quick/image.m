@@ -33,7 +33,7 @@
 
 % AuthorFirst AuthorLast, Year
 
-function fig = image(I, varargin)
+function fb = image(I, varargin)
 %% Meta Setup
 %%% Function Metadata
 fcnName = strcat('csplot.quick.', mfilename);
@@ -49,10 +49,26 @@ ip = csmu.InputParser.fromSpec({
    {'p', 'DoShowFigure', true}
    {'p', 'Title', ''}
    {'p', 'Name', ''}
+   {'p', 'DoDarkMode', false}
+   {'p', 'DarkMode', false}
    });
 ip.FunctionName = fcnName;
 ip.parse(varargin{:});
 inputs = ip.Results;
+
+doDarkMode = inputs.DoDarkMode || inputs.DarkMode;
+backgroundColor = [];
+foregroundColor = [];
+
+if doDarkMode
+   if isempty(backgroundColor)
+      backgroundColor = ones(1, 3) * 0.05;
+   end  
+
+   if isempty(foregroundColor)
+      foregroundColor = ones(1, 3) * 0.75;
+   end
+end
 
 %% Evaluation
 
@@ -75,20 +91,27 @@ ax.YLim = [1, I.Size(1)] + [-0.5, +0.5];
 ax.DataAspectRatio = [1, 1, 1];
 
 if ~isempty(inputs.Title)
-   ax.Title = inputs.Title;
+   ax.Title = struct();
+   ax.Title.String = inputs.Title;
+   if ~isempty(foregroundColor)
+      ax.Title.Color = foregroundColor;
+   end
 end
 
-fig = csplot.FigureBuilder();
-fig.AxisConfigs = [ax];
-fig.PlotBuilders = {{imPlot}};
+fb = csplot.FigureBuilder();
+if ~isempty(backgroundColor)
+   fb.Color = backgroundColor;
+end
+fb.AxisConfigs = [ax];
+fb.PlotBuilders = {{imPlot}};
 
 if ~isempty(inputs.Name)
-   fig.Name = inputs.Name;
+   fb.Name = inputs.Name;
 elseif ~isempty(inputs.Title)
-   fig.Name = inputs.Title;
+   fb.Name = inputs.Title;
 end
 
 if inputs.DoShowFigure
-   fig.show();
+   fb.show();
 end
 end

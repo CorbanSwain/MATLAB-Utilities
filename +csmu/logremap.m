@@ -30,11 +30,18 @@ xHigh = x(highFilt);
    function [bScaled, clipVal] = remapHelper(a, clipVal)
       b = logn(a);
       if isempty(clipVal)
-         minB = min(b(isfinite(b)), [], 'all') - MIN_DELTA;
-         clipVal = base ^ minB;
+         finiteB = b(isfinite(b));
+         if isempty(finiteB)
+            minB = -MIN_DELTA;         
+         else
+            minB = min(finiteB, [], 'all') - MIN_DELTA;
+         end
+         
+         clipVal = base .^ minB;
       else
          minB = logn(clipVal);
       end
+      
       b(b < minB) = minB;
       bScaled = (b - minB) / (LOG_HALF - minB) / 2;
    end

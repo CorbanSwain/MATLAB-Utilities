@@ -29,6 +29,18 @@
 classdef ImageEvalMethod
 
    enumeration
+      SumTruthy ...
+         (true, 'double', 'Sum Dark', 'i.u.', ...
+         NaN)
+      SumFalsy ...
+         (true, 'double', 'Sum Light', 'i.u.', ...
+         NaN)
+      CountTruthy ...
+         (true, 'double', 'Count Dark', 'counts', ...
+         NaN)
+      CountFalsy ...
+         (true, 'double', 'Count Light', 'counts', ...
+         NaN)
       RelativeSumTruthy ...
          (true, 'double', 'Relative Sum Dark', 'a.u.', ...
          NaN)
@@ -144,7 +156,7 @@ classdef ImageEvalMethod
 
                   result = struct();
                   [result.Median, result.Data] = ...
-                     self.evalResolution(IRescaled, inputs);
+                     self.evalResolution(IRescaled, varargin{:});
 
                case 'MinVal'
                   result = min(IUnscaled, [], 'all');
@@ -191,6 +203,11 @@ classdef ImageEvalMethod
             end
          end
          
+         if isfloat(result)
+            if any(strcmpi(self.DataType, {'single', 'double'}))
+               result = cast(result, self.DataType);
+            end
+         end
 
          L.assert(isa(result, self.DataType), ...
             'Result is of class ''%s'', expected ''%s''.', ...
@@ -230,16 +247,44 @@ classdef ImageEvalMethod
 
          R = inputs.ReferenceImage;
 
+         if ~all(size(R) == size(I))
+            L.warn('Reference and evaluation images have different sizes.')
+         end
+
          repassedInputs = inputs;
          repassedInputs = rmfield(repassedInputs, 'ReferenceImage');
 
-
-         L.assert(strcmp(class(I), class(R)), ...
-            ['If int type, image and reference must be of the same int ' ...
-            'type.']);
-
+         if isinteger(I) || isinteger(R)
+            L.assert(strcmp(class(I), class(R)), ...
+               ['If int type, image and reference must be of the same int ' ...
+               'type.']);
+         end
 
          switch self
+            case 'SumTruthy'
+               repassedInputs.Method = 'values';
+               repassedInputs.DoSumTrue = true;
+               repassedInputs.DoRelative = false;
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
+            case 'SumFalsy'
+               repassedInputs.Method = 'values';
+               repassedInputs.DoSumTrue = false;
+               repassedInputs.DoRelative = false;
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
+            case 'CountTruthy'
+               repassedInputs.Method = 'counts';
+               repassedInputs.DoSumTrue = true;
+               repassedInputs.DoRelative = false;
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
+            case 'CountFalsy'
+               repassedInputs.Method = 'counts';
+               repassedInputs.DoSumTrue = false;
+               repassedInputs.DoRelative = false;
+               result = self.binaryEvalHelper(I, R, repassedInputs);
+
             case 'RelativeSumTruthy'
                repassedInputs.Method = 'values';
                repassedInputs.DoSumTrue = true;
@@ -458,13 +503,21 @@ classdef ImageEvalMethod
                   if (prctileVal <= minR) && (prctCutoff(iMeasure) <= 0)
                      masks{iMeasure}(:) = true;
                   else
-                     masks{iMeasure} = R > prctileVal;
+                     if (prctileVal >= maxR) && (prctCutoff(iMeasure) < 100)
+                        masks{iMeasure} = R >= prctileVal;
+                     else
+                        masks{iMeasure} = R > prctileVal;
+                     end
                   end
                else
-                  if prctileVal >= maxR && (prctCutoff(iMeasure) >= 100)
+                  if (prctileVal >= maxR) && (prctCutoff(iMeasure) >= 100)
                      masks{iMeasure}(:) = true;
                   else
-                     masks{iMeasure} = R < prctileVal;
+                     if prctileVal <= minR && (prctCutoff(iMeasure) > 0)
+                        masks{iMeasure} = R <= prctileVal;
+                     else
+                        masks{iMeasure} = R < prctileVal;
+                     end
                   end
                end
             end
@@ -577,15 +630,19 @@ classdef ImageEvalMethod
             calcArgs = inputs.ResMeasureCalculateArgs;
          end
 
-         resMeasureFigureArgs = {
-            'DoDarkMode', true, ...
-            'FontName', 'Helvetica LT Pro', ...
-            'DoShowSampleAxis', true, ...
-            'DoShowAxisLabels', true, ...
-            'DoShowPeakMarker', false, ...
-            'DoShowMeasurementText', false, ...
-            'ViewWidth', 80, ...
-            'PlotLayout', 1};
+         if inputs.DoMakeResMeasureFigures
+            % L.warn('TODO - Reset res measure figure args.')
+            resMeasureFigureArgs = {
+               'DoDarkMode', true, ...
+               'FontName', 'Helvetica LT Pro', ...
+               'DoShowSampleAxis', true, ...
+               'DoShowAxisLabels', true, ...
+               'DoShowPeakMarker', false, ...
+               'DoShowMeasurementText', false, ...
+               'DoMaxProjection', false, ...
+               'ViewWidth', 80, ...
+               'PlotLayout', 1};
+         end
 
          nLocations = size(inputs.BeadLocations, 1);
 
@@ -606,16 +663,23 @@ classdef ImageEvalMethod
                   I, ...
                   inputs.BeadLocations(iBead, :), ...
                   calcArgs{:});
-
-               if inputs.DoMakeResMeasureFigures
-                  fb = resMeasures(iBead).prettyFigure(resMeasureFigureArgs{:});
-                  fb.figure();
-               end
             catch ME
                L.debug(strcat('Error raised while attempting to calculate', ...
                   ' resolution at a bead location (# %d).'), iBead);
-               L.logException(csmu.LogLevel.TRACE, ME);
+               L.logException(csmu.LogLevel.DEBUG, ME);
             end
+
+            if inputs.DoMakeResMeasureFigures
+               try
+                  fb = resMeasures(iBead).prettyFigure(resMeasureFigureArgs{:});
+                  fb.figure();
+               catch ME
+                  L.debug(strcat('Error raised while attempting to plot', ...
+                     ' res. measure at a bead location (# %d).'), iBead);
+                  L.logException(csmu.LogLevel.DEBUG, ME);
+               end
+            end
+
          end
 
          rawValues = zeros(0, 3);
