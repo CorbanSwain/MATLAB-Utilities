@@ -1,5 +1,5 @@
 function fb = projView(V, varargin)
-ip = inputParser;
+ip = inputParser();
 ip.addParameter('ImageRef', []); % listable
 ip.addParameter('BackgroundColor', []);
 ip.addParameter('AxesColor', []);

@@ -24,7 +24,7 @@ if isempty(method)
       'the `Method` parameter to suppress this warning.'), method);
 end
 
-switch method
+switch lower(method)
    case 'limits'     
       Icrop = I(ymin:ymax, xmin:xmax, zmin:zmax, :);
    case 'crop'
