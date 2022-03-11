@@ -238,6 +238,10 @@ classdef ImageRef < csmu.Object
    
    methods (Static)
       function sz = lims2size(limits)
+         
+         % make sure each lim vector is a row vector
+         limits = csmu.cellmap(@(x) x(:)', limits);
+
          limits = cat(1, limits{:});
          sz = round(diff(limits, 1, 2))';
          sz([1, 2]) = sz([2, 1]);
@@ -252,6 +256,25 @@ classdef ImageRef < csmu.Object
          else
             error('Unexpected input provided.');
          end
+      end
+
+      function ref = fromWorldLimits(varargin)
+         ref = csmu.ImageRef();
+         if nargin == 1
+            worldLimits = varargin{1};
+            if ~iscell(worldLimits)
+               
+               mustBeNumeric(worldLimits);
+               assert(size(worldLimits, 2) == 2);
+               numRows = size(worldLimits, 1);
+               assert(any(numRows == [2, 3]));
+               worldLimits = mat2cell(worldLimits, ones(1, numRows));
+               worldLimits = worldLimits';
+            end
+         else
+            worldLimits = varargin;
+         end
+         ref.WorldLimits = worldLimits;
       end
    end
    

@@ -158,7 +158,7 @@ if doUseBuiltin
    
    t1 = tic();
    [B, RB] = imwarp(warpargs{:});
-   L.debug('   ... builtin transform took %.1f s', toc(t1));
+   L.debug('   ... builtin transform took %s', csmu.durationString(toc(t1)));
    
    switch nargout
       case 1

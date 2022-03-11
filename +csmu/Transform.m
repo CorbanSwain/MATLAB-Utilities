@@ -1,13 +1,18 @@
-classdef Transform < handle & matlab.mixin.Copyable
+classdef Transform < matlab.mixin.Copyable
    properties
       Rotation {mustBeNumeric, ...
          csmu.validators.mustBeVector(Rotation, [0, 1, 3])}
       Translation {mustBeNumeric, ...
          csmu.validators.mustBeVector(Translation, [0, 2, 3])}
       DoReverse (1, 1) logical = false
-      InputView csmu.ImageRef
-      OutputView csmu.ImageRef
+      InputView csmu.ImageRef {mustBeScalarOrEmpty}     
       
+      MaxMutualView csmu.ImageRef {mustBeScalarOrEmpty}
+      MinMutualView csmu.ImageRef {mustBeScalarOrEmpty}
+
+      DoUseMutualView (1, 1) logical = false
+      OutputMutualViewSelection solver.MutualView {mustBeScalarOrEmpty}
+
       % RotationUnits
       % char (default is 'deg')
       %
@@ -19,11 +24,17 @@ classdef Transform < handle & matlab.mixin.Copyable
          {csmu.validators.mustBeScalarOrEmpty}
    end
    
+   properties (GetAccess = 'protected', SetAccess = 'protected')
+      ManualOutputView csmu.ImageRef {mustBeScalarOrEmpty}
+   end
+
    properties (GetAccess = 'private', SetAccess = 'private')
       AffineCache
    end
    
    properties (Dependent)
+      OutputView
+
       AffineObj
       Affine2D
       Affine3D
@@ -104,21 +115,11 @@ classdef Transform < handle & matlab.mixin.Copyable
       
       function [varargout] = warpImage(self, I, varargin)
          L = csmu.Logger('csmu.Transform.warpImage');
-
-         persistent tformCache
-         if (ischar(I) || isstring(I)) && strcmpi(I, 'clear') 
-            L.debug('Clearing tformCache.');
-            tformCache = [];
-            return
-         end
          
          % parse inputs
          ip = inputParser;
-         ip.addParameter('WarpArgs', {}, @(x) iscell(x));
-         ip.addParameter('Save', false, @(x) islogical(x) && isscalar(x));
-         ip.parse(varargin{:});
+         ip.addParameter('WarpArgs', {}, @(x) iscell(x));       
          warpParams = ip.Results.WarpArgs;
-         doSave = ip.Results.Save;
          
          if self.DoReverse
             RA = self.OutputView;
@@ -150,39 +151,8 @@ classdef Transform < handle & matlab.mixin.Copyable
             L.assert(~islogical(I), 'Cannot transform a logical array.')
             L.assert(isreal(I), strcat('Cannot transform an array with', ...
                ' imaginary components.'));
-            cacheLength = length(tformCache);
-            doLoad = 0;
-            warpArgs = [{RA, self.AffineObj}, warpParams];
-            for iCached = 1:cacheLength
-               cachedArgs = tformCache(iCached).tformArgs;
-               if isequal(warpArgs, cachedArgs)
-                  if ~isempty(tformCache(iCached).indexMap)
-                     doLoad = iCached;
-                  end
-                  break
-               end
-            end
-            if ~doLoad
-               L.debug('Performing non-trivial transformation.');
-               if doSave
-                  [B, RB, indexMap] = csmu.affinewarp(I, warpArgs{:});
-                  if isempty(tformCache), tformCache = struct; end
-                  i = cacheLength + 1;
-                  tformCache(i).tformArgs = warpArgs;
-                  tformCache(i).RB = RB;
-                  tformCache(i).indexMap = indexMap;
-                  tformCache(i).class = class(B);
-               else % (don't save)
-                  [B, RB] = csmu.affinewarp(I, warpArgs{:});
-               end
-            else % (do load)
-               L.debug('Loading transform from `tformCache`.');
-               t1 = tic;
-               B = csmu.affinewarp(I, tformCache.tformArgs{:}, ...
-                  'IndexMap', tformCache(doLoad).indexMap);
-               L.debug('   ... cached transform took %.2f s.', toc(t1));
-               RB = tformCache(doLoad).RB;
-            end
+
+            [B, RB] = csmu.imwarp(I, RA, self, warpParams{:});
          end
          
          switch nargout
@@ -220,6 +190,103 @@ classdef Transform < handle & matlab.mixin.Copyable
          [varargout{:}] = self.warpImage(I, varargin{:});
       end
          
+      function computeMutualViews(selfArr)
+         funcName = strcat('csmu.', mfilename(), '.computeMutualViews');
+         L = csmu.Logger(funcName);
+
+         numTransforms = length(selfArr);
+         
+         function resetReverseStates(tforms, states)
+            [tforms.DoReverse] = states{:};
+         end
+
+         if numTransforms == 0
+            L.error(['This method must be called on a non-empty' ...
+               ' csmu.Transform array.']);
+         elseif numTransforms == 1
+            minMutualView =selfArr.OutputView;
+            maxMutualView = selfArr.OutputView;
+         else
+            doReverseState = cell(1, numTransforms);
+            [doReverseState{:}] = selfArr.DoReverse;
+            cleanup = onCleanup(...
+               @() resetReverseStates(selfArr, doReverseState));
+            [selfArr.DoReverse] = deal(false);
+
+            outputRefs = arrayfun(@(t) t.warpRef(t.InputView), selfArr);
+           
+            clear('cleanup');
+
+            outputWorldLimits = cell(1, numTransforms);
+            [outputWorldLimits{:}] = outputRefs.WorldLimits;            
+
+            outputWorldLimits_matrix = csmu.cellmap(...
+               @(c) cat(1, c{:}), outputWorldLimits);
+            worldLimitsRange = cat(3, outputWorldLimits_matrix{:});
+
+            maxMutualWorldLimits = [
+               min(worldLimitsRange(:, 1, :), [], 3), ...
+               max(worldLimitsRange(:, 2, :), [], 3)];
+
+            minMutualWorldLimits =  [
+               max(worldLimitsRange(:, 1, :), [], 3), ...
+               min(worldLimitsRange(:, 2, :), [], 3)];
+
+            maxMutualView = csmu.ImageRef.fromWorldLimits(maxMutualWorldLimits);
+            minMutualView = csmu.ImageRef.fromWorldLimits(minMutualWorldLimits);
+         end
+
+         [selfArr.MinMutualView] = deal(minMutualView);
+         [selfArr.MaxMutualView] = deal(maxMutualView);
+      end
+      
+
+      function clearOutputView(self)
+         self.ManualOutputView = [];
+      end
+
+      function clearMutualViews(self)
+         self.MinMutualView = [];
+         self.MaxMutualView = [];
+      end
+
+      function emptyObj = emptyFun(~, varargin)
+         emptyObj = csmu.Transform.empty(varargin{:});
+      end
+
+      %% Get-Set Methods
+      function out = get.OutputView(self)
+         L = csmu.Logger('csmu.', mfilename(), 'get.OutputView');
+
+         if self.DoUseMutualView
+            switch self.OutputMutualViewSelection
+               case solver.MutualView.MIN_VIEW
+                  out = self.MinMutualView;
+               case solver.MutualView.MAX_VIEW
+                  out = self.MaxMutualView;
+               otherwise
+                  L.error(['OutputMutualViewSelection property must be set ' ...
+                     'if DoUseMutualView is true.'])
+            end
+
+            if isempty(out)              
+               L.warn('Mutual views have not been calculated/set.');
+            end
+         else
+            out = self.ManualOutputView;
+         end
+      end
+
+      function set.OutputView(self, x)
+         if self.DoUseMutualView
+            L = csmu.Logger('csmu.', mfilename(), 'set.OutputView');
+            L.error(['OutputView cannot be set if using mutual views, set' ...
+               'DoUseMutualView property to false before setting.']);
+         else
+            self.ManualOutputView = x;
+         end
+      end
+
       function set.AffineObj(self, val)
          assert(any(strcmpi(class(val), {'affine3d', 'affine2d'})));
          self.AffineCache = val;
@@ -326,10 +393,6 @@ classdef Transform < handle & matlab.mixin.Copyable
                out = csmu.df2tform(rot, trans, self.DoReverse);
             end
          end
-      end
-      
-      function emptyObj = emptyFun(~, varargin)
-         emptyObj = csmu.Transform.empty(varargin{:});
       end
       
       function out = get.IsTrivial(self)
