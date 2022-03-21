@@ -10,15 +10,10 @@ classdef Transform < matlab.mixin.Copyable
       MaxMutualView csmu.ImageRef {mustBeScalarOrEmpty}
       MinMutualView csmu.ImageRef {mustBeScalarOrEmpty}
 
-      DoUseMutualView (1, 1) logical = false
+      DoUseMutualView (1, 1) {csmu.validators.mustBeLogicalScalar} = false
       OutputMutualViewSelection solver.MutualView {mustBeScalarOrEmpty}
 
-      % RotationUnits
-      % char (default is 'deg')
-      %
-      % either 'deg' or 'rad'
-      RotationUnits (1, :) char ...
-         {csmu.validators.mustBeValidRotationUnit} = 'deg'
+      RotationUnits (1, 1) csmu.RotationUnit = 'degree'
       
       TranslationRotationOrder csmu.IndexOrdering ...
          {csmu.validators.mustBeScalarOrEmpty}
@@ -194,47 +189,44 @@ classdef Transform < matlab.mixin.Copyable
          funcName = strcat('csmu.', mfilename(), '.computeMutualViews');
          L = csmu.Logger(funcName);
 
-         numTransforms = length(selfArr);
-         
-         function resetReverseStates(tforms, states)
-            [tforms.DoReverse] = states{:};
-         end
+         numTransforms = length(selfArr);         
 
          if numTransforms == 0
             L.error(['This method must be called on a non-empty' ...
                ' csmu.Transform array.']);
-         elseif numTransforms == 1
-            minMutualView =selfArr.OutputView;
-            maxMutualView = selfArr.OutputView;
-         else
-            doReverseState = cell(1, numTransforms);
-            [doReverseState{:}] = selfArr.DoReverse;
-            cleanup = onCleanup(...
-               @() resetReverseStates(selfArr, doReverseState));
-            [selfArr.DoReverse] = deal(false);
-
-            outputRefs = arrayfun(@(t) t.warpRef(t.InputView), selfArr);
-           
-            clear('cleanup');
-
-            outputWorldLimits = cell(1, numTransforms);
-            [outputWorldLimits{:}] = outputRefs.WorldLimits;            
-
-            outputWorldLimits_matrix = csmu.cellmap(...
-               @(c) cat(1, c{:}), outputWorldLimits);
-            worldLimitsRange = cat(3, outputWorldLimits_matrix{:});
-
-            maxMutualWorldLimits = [
-               min(worldLimitsRange(:, 1, :), [], 3), ...
-               max(worldLimitsRange(:, 2, :), [], 3)];
-
-            minMutualWorldLimits =  [
-               max(worldLimitsRange(:, 1, :), [], 3), ...
-               min(worldLimitsRange(:, 2, :), [], 3)];
-
-            maxMutualView = csmu.ImageRef.fromWorldLimits(maxMutualWorldLimits);
-            minMutualView = csmu.ImageRef.fromWorldLimits(minMutualWorldLimits);
          end
+
+         function resetReverseStates(tforms, states)
+            [tforms.DoReverse] = states{:};
+         end
+
+         doReverseState = cell(1, numTransforms);
+         [doReverseState{:}] = selfArr.DoReverse;
+         cleanup = onCleanup(...
+            @() resetReverseStates(selfArr, doReverseState));
+         [selfArr.DoReverse] = deal(false);
+
+         outputRefs = arrayfun(@(t) t.warpRef(t.InputView), selfArr);
+
+         clear('cleanup');
+
+         outputWorldLimits = cell(1, numTransforms);
+         [outputWorldLimits{:}] = outputRefs.WorldLimits;
+
+         outputWorldLimits_matrix = csmu.cellmap(...
+            @(c) cat(1, c{:}), outputWorldLimits);
+         worldLimitsRange = cat(3, outputWorldLimits_matrix{:});
+
+         maxMutualWorldLimits = [
+            min(worldLimitsRange(:, 1, :), [], 3), ...
+            max(worldLimitsRange(:, 2, :), [], 3)];
+
+         minMutualWorldLimits =  [
+            max(worldLimitsRange(:, 1, :), [], 3), ...
+            min(worldLimitsRange(:, 2, :), [], 3)];
+
+         maxMutualView = csmu.ImageRef.fromWorldLimits(maxMutualWorldLimits);
+         minMutualView = csmu.ImageRef.fromWorldLimits(minMutualWorldLimits);
 
          [selfArr.MinMutualView] = deal(minMutualView);
          [selfArr.MaxMutualView] = deal(maxMutualView);
@@ -359,9 +351,7 @@ classdef Transform < matlab.mixin.Copyable
                         csmu.IndexType.VECTOR);
                   end
                   
-                  if strcmpi(self.RotationUnits, 'rad')
-                     rot = rad2deg(rot);
-                  end
+                  rot = self.RotationUnits.toDegrees(rot);
                   
                   if isempty(self.Translation)
                      if length(rot) == 1
