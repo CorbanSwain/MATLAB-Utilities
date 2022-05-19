@@ -57,7 +57,7 @@ classdef ImageRef < csmu.Object
                   
                case 'csmu.Image'
                   % A csmu.Image object is passed.
-                  self = csmu.ImageRef(varargin{1}.I);
+                  self.Ref = self.makeMatlabImRef(size(varargin{1}.I));
                   
                otherwise
                   assert(isnumeric(varargin{1}), 'Unexpected input provided.');

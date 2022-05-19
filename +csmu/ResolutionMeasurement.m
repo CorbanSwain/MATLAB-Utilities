@@ -794,11 +794,11 @@ classdef ResolutionMeasurement < csmu.Object
                aPlots(6).TextArrowString = zAnnotation;
                switch zArrowAnnotationLayout
                   case 'inner'
-                     aPlots(6).TextArrowHorizontalAlignment = 'right';
+                     aPlots(6).TextArrowHorizontalAlignment = 'left';
                      aPlots(6).TextArrowVerticalAlignment = 'top';
                      
                   case 'outer'
-                     aPlots(6).TextArrowHorizontalAlignment = 'left';
+                     aPlots(6).TextArrowHorizontalAlignment = 'right';
                      aPlots(6).TextArrowVerticalAlignment = 'bottom';
                      
                   otherwise
