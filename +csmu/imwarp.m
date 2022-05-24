@@ -5,9 +5,10 @@ arguments
    A {mustBeNumeric}
    RA (1, 1) csmu.ImageRef
    transform
+   nvInputs.DoInverse {csmu.validators.mustBeLogicalScalar}
    nvInputs.OutputView (1, 1) csmu.ImageRef = []
    nvInputs.FillValues {mustBeNumeric} = []
-   nvInputs.SmoothEdges (1, 1) logical = true
+   nvInputs.SmoothEdges (1, 1) logical = true   
 end
 
 funcName = strcat('csmu.', mfilename());
@@ -32,7 +33,8 @@ end
 %% Setup
 L.debug('Preparing to perform image warp.');
 if isa(transform, 'csmu.Transform')
-   affineTransform = transform.AffineObj;
+   affineTransform = transform.computeAffineObject(...
+      'DoInverse', nvInputs.DoInverse);
 else
    affineTransform = transform;
 end   

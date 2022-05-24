@@ -4,7 +4,12 @@ classdef Transform < matlab.mixin.Copyable
          csmu.validators.mustBeVector(Rotation, [0, 1, 3])}
       Translation {mustBeNumeric, ...
          csmu.validators.mustBeVector(Translation, [0, 2, 3])}
-      DoReverse (1, 1) logical = false
+
+      % DoReverse
+      % this property is deprecated, do not set or use
+      DoReverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
+      
+      
       InputView csmu.ImageRef {mustBeScalarOrEmpty}     
       
       MaxMutualView csmu.ImageRef {mustBeScalarOrEmpty}
@@ -104,19 +109,37 @@ classdef Transform < matlab.mixin.Copyable
          end
       end
       
-      function P = warpPoints(self, P)         
-         P = self.AffineObj.transformPointsForward(P);
+      function P = warpPoints(self, P, nvArgs)       
+         arguments
+            self Transform
+            P
+            nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
+         end
+
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.warpPoints'));
+
+         doInverse = self.determineInverseState(nvArgs.DoInverse, L);
+
+         affineObj = self.computeAffineObject(self, doInverse);
+         P = affineObj.transformPointsForward(P);
       end
       
-      function [varargout] = warpImage(self, I, varargin)
-         L = csmu.Logger('csmu.Transform.warpImage');
+      function [varargout] = warpImage(self, I, nvArgs)
+         arguments
+            self Transform
+            I
+            nvArgs.WarpArgs (1, :) cell = {}
+            nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
+         end
+
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.warpImage'));
          
-         % parse inputs
-         ip = inputParser;
-         ip.addParameter('WarpArgs', {}, @(x) iscell(x));       
-         warpParams = ip.Results.WarpArgs;
+         doInverse = self.determineInverseState(nvArgs.DoInverse, L);
          
-         if self.DoReverse
+         warpArgs = nvArgs.WarpArgs;
+         warpArgs = [warpArgs, {'DoInverse'}, {doInverse}];
+
+         if doInverse
             RA = self.OutputView;
             RB = self.InputView;
          else
@@ -130,7 +153,7 @@ classdef Transform < matlab.mixin.Copyable
          end
         
          if ~isempty(RB)            
-            warpParams = [warpParams, {'OutputView'}, {RB}];
+            warpArgs = [warpArgs, {'OutputView'}, {RB}];
          end
          
          % no transformation just, potentially, a view change         
@@ -147,7 +170,7 @@ classdef Transform < matlab.mixin.Copyable
             L.assert(isreal(I), strcat('Cannot transform an array with', ...
                ' imaginary components.'));
 
-            [B, RB] = csmu.imwarp(I, RA, self, warpParams{:});
+            [B, RB] = csmu.imwarp(I, RA, self, warpArgs{:});
          end
          
          switch nargout
@@ -158,23 +181,54 @@ classdef Transform < matlab.mixin.Copyable
          end
       end
       
-      function imref = warpRef(self, imref)
+      function warpedRef = warpRef(self, imref, nvArgs)
+         arguments
+            self Transform
+            imref
+            nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
+         end
+
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.warpRef'));
+
+         doInverse = self.determineInverseState(nvArgs.DoInverse, L);
+         
          imref = csmu.ImageRef(imref);       
          newOutLims = cell(1, self.NumDims);
-         [newOutLims{:}] = self.outputLimits(imref.WorldLimits{:});
-         imref = csmu.ImageRef;
-         imref.WorldLimits = newOutLims;
+         [newOutLims{:}] = self.computeOutputLimits(...
+            'InputsLimits', imref.WorldLimits, ...
+            'DoInverse', doInverse);
+         
+         warpedRef = csmu.ImageRef();
+         warpedRef.WorldLimits = newOutLims;
       end
 
       function [varargout] = outputLimits(self, varargin)
-         varargout = cell(1, self.NumDims);
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.outputLimits'));
+         L.warn(['Do not use `outputLimits` method; use ' ...
+            '`computeOutputLimits` instead.']);
+         varargout = cell(1, self.NumDims);         
          [varargout{:}] = self.AffineObj.outputLimits(varargin{:});
       end
             
-      function P = applyToPoints(self, P)
+      function [varargout] = computeOutputLimits(self, nvArgs)
+         arguments
+            self Transform
+            nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
+            nvArgs.InputLimits = {}
+         end
+         
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.warpImage'));
+         doInverse = self.determineInverseState(nvArgs.DoInverse, L);
+
+         varargout = cell(1, self.NumDims);
+         affineObj = self.computeAffineObject('DoInverse', doInverse);
+         [varargout{:}] = affineObj.outputLimits(nvArgs.InputLimits{:});
+      end
+
+      function P = applyToPoints(self, P, varargin)
          L = csmu.Logger('csmu.Transform.applyToPoints');
          L.warn('Transform.applyToPoints is deprecated, use ''warpPoints''');
-         P = self.warpPoints(P);
+         P = self.warpPoints(P, varargin{:});
       end
       
       % adapted from dftransform
@@ -200,11 +254,17 @@ classdef Transform < matlab.mixin.Copyable
             [tforms.DoReverse] = states{:};
          end
 
+         % performing check for backwards compatibility; however if the
+         % DoReverse property is not used, this check does not need to be
+         % performed.
+         % TODO - remove in future release
          doReverseState = cell(1, numTransforms);
          [doReverseState{:}] = selfArr.DoReverse;
-         cleanup = onCleanup(...
-            @() resetReverseStates(selfArr, doReverseState));
-         [selfArr.DoReverse] = deal(false);
+         if any(cellfun(@(x) ~isempty(x), doReverseState), 'all')
+            cleanup = onCleanup(...
+               @() resetReverseStates(selfArr, doReverseState));
+            [selfArr.DoReverse] = deal(false);
+         end
 
          outputRefs = arrayfun(@(t) t.warpRef(t.InputView), selfArr);
 
@@ -296,21 +356,29 @@ classdef Transform < matlab.mixin.Copyable
       
       function out = get.Inverse(self)
          % FIXME ... this could cause an issue with subclasses
+         L = csmu.Logger('csmu.', mfilename(), '.get.Inverse');
+         L.warn(['Do not use the `Inverse` property']);
          out = csmu.Transform(self.AffineObj.invert);
       end
       
       function out = get.Affine3D(self)
+         L = csmu.Logger('csmu.', mfilename(), '.get.Affine3D');
+         L.warn(['Do not get the `Affine3d` property instead call' ...
+            ' the `computeAffineObject` method.'])
          assert(self.NumDims == 3);
          out = self.AffineObj;
       end
       
       function out = get.Affine2D(self)
+         L = csmu.Logger('csmu.', mfilename(), '.get.Affine2D');
+         L.warn(['Do not get the `Affine2D` property instead call' ...
+            ' the `computeAffineObject` method.'])
          assert(self.NumDims == 2);
          out = self.AffineObj;
       end
          
       function out = get.NumDims(self)
-         switch class(self.AffineObj)
+         switch class(self.computeAffineObject())
             case 'affine2d'
                out = 2;
             case 'affine3d'
@@ -319,7 +387,21 @@ classdef Transform < matlab.mixin.Copyable
       end
       
       function out = get.AffineObj(self)
-         L = csmu.Logger('csmu.Transform.get.AffineObj');
+        L = csmu.Logger('csmu.', mfilename(), '.get.AffineObj');
+        L.warn(['Do not get the `AffineObj` property instead call' ...
+           ' the `computeAffineObject` method.'])
+        out = self.computeAffineObject("DoInverse", self.DoReverse);
+      end
+      
+      function affineObj = computeAffineObject(self, nvArgs)
+         arguments
+            self csmu.Transform
+            nvArgs.DoInverse = false
+         end
+
+         csmu.validators.notImplemented(self.DoReverse);
+
+         L = csmu.Logger('csmu.', mfilename(), '.computeAffineObject');
          if ~isempty(self.AffineCache)
             if ~isempty(self.Rotation) || ~isempty(self.Translation)
                L.warn(['Defaulting to use the provided the AffineObj \n', ...
@@ -328,14 +410,14 @@ classdef Transform < matlab.mixin.Copyable
                   'message set either the AffineObj property or both \n', ...
                   'Rotation and Translation properties to an empty array.']);
             end
-            out = self.AffineCache;
-            if self.DoReverse
-               out = out.invert;
+            affineObj = self.AffineCache;
+            if nvArgs.DoInverse
+               affineObj = affineObj.invert;
             end
          else
             if isempty(self.Rotation) && isempty(self.Translation)
                L.warn('Defaulting to return an affine3d object');
-               out = affine3d();
+               affineObj = affine3d();
             else
                [rot, trans] = deal([]);
                idxOrder = self.TranslationRotationOrder;
@@ -350,9 +432,9 @@ classdef Transform < matlab.mixin.Copyable
                      rot = idxOrder.toRowCol(self.Rotation, ...
                         csmu.IndexType.VECTOR);
                   end
-                  
+
                   rot = self.RotationUnits.toDegrees(rot);
-                  
+
                   if isempty(self.Translation)
                      if length(rot) == 1
                         trans = [0 0];
@@ -380,19 +462,32 @@ classdef Transform < matlab.mixin.Copyable
                      end
                   end
                end
-               out = csmu.df2tform(rot, trans, self.DoReverse);
+               affineObj = csmu.df2tform(rot, trans, nvArgs.DoInverse);
             end
          end
       end
-      
+
       function out = get.IsTrivial(self)
          out = isequal(self.T, eye(4));
       end
       
       function out = get.T(self)
-         out = self.AffineObj.T;
+         L = csmu.Logger('csmu.', mfilename(), '.get.T');
+         L.warn(['Do not use the `T` property instead call' ...
+            ' the `computeTransformMatrix` method.']);
+         out = self.computeTransformMatrix('DoInverse', self.DoReverse);
       end
       
+      function transformMatrix = computeTransformMatrix(self, nvArgs)
+         arguments
+            self csmu.Transform
+            nvArgs.DoInverse {csmu.validators.mustBeLogicalScalar} = false
+         end
+         
+         affineObj = self.computeAffineObject('DoInverse', nvArgs.DoInverse);
+         transformMatrix = affineObj.T;
+      end
+
       function set.T(self, val)
          try
             affObj = affine3d(val);
@@ -434,6 +529,24 @@ classdef Transform < matlab.mixin.Copyable
          self.OutputView = val;
       end
       
+      function set.DoReverse(self, val)
+         L = csmu.Logger('csmu.', mfilename(), '.set.DoReverse');
+         L.warn(['Do not set `DoReverse`, instead set as an argument when ' ...
+            'calling `warpImage`, `warpPoints`, `computeAffineMatrix` or ' ...
+            'other method which requires determining the transform array.']);
+         
+         self.DoReverse = val;
+      end
+
+      function out = get.DoReverse(self)
+         L = csmu.Logger('csmu.', mfilename(), '.get.DoReverse');
+         L.debug(['Do not use `DoReverse`, instead set as an argument when ' ...
+            'calling `warpImage`, `warpPoints`, `computeAffineMatrix` or ' ...
+            'other method which requires determining the transform array.']);
+
+         self.DoReverse = val;
+      end
+
       function out = get.DoInverse(self)
          out = self.DoReverse;
       end
@@ -453,6 +566,31 @@ classdef Transform < matlab.mixin.Copyable
       end      
    end
    
+   methods (Access=protected)
+
+      function doInverse = determineInverseState(self, localInverseArg, logger)
+         L = logger;
+         if isempty(self.DoReverse)
+            if isempty(localInverseArg)
+               doInverse = false;
+            else
+               doInverse = localInverseArg;
+            end
+         else
+            L.warn('`DoReverse` property should remain unset.')
+            if isempty(localInverseArg)
+               L.warn('Using `DoReverse` obj property to control method.')
+               doInverse = self.DoReverse;
+            else
+               L.warn(['Overriding `DoReverse` obj property with method ' ...
+                  'argument to control method.'])
+               doInverse = localInverseArg;
+            end
+         end
+      end
+
+   end
+
    methods (Static)
       function clearWarpImage
          T = csmu.Transform;
