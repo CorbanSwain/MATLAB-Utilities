@@ -8,12 +8,8 @@ classdef Transform < matlab.mixin.Copyable
       % DoReverse
       % this property is deprecated, do not set or use
       DoReverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
-      
-      
-      InputView csmu.ImageRef {mustBeScalarOrEmpty}     
-      
-      MaxMutualView csmu.ImageRef {mustBeScalarOrEmpty}
-      MinMutualView csmu.ImageRef {mustBeScalarOrEmpty}
+            
+      InputView csmu.ImageRef {mustBeScalarOrEmpty}               
 
       DoUseMutualView (1, 1) {csmu.validators.mustBeLogicalScalar} = false
       OutputMutualViewSelection solver.MutualView {mustBeScalarOrEmpty}
@@ -26,6 +22,11 @@ classdef Transform < matlab.mixin.Copyable
    
    properties (GetAccess = 'protected', SetAccess = 'protected')
       ManualOutputView csmu.ImageRef {mustBeScalarOrEmpty}
+   end
+
+   properties (SetAccess=protected)
+      MaxMutualView csmu.ImageRef {mustBeScalarOrEmpty}
+      MinMutualView csmu.ImageRef {mustBeScalarOrEmpty}
    end
 
    properties (GetAccess = 'private', SetAccess = 'private')
