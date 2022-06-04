@@ -564,7 +564,26 @@ classdef Logger < handle
             varargin{1}.rethrow();
          else
             try
-               error(varargin{:});
+               [errmsg, sprintfErr] = sprintf(varargin{:});               
+            catch ME
+               newME = MException('csmuLogger:messagePreparationError', ...
+                  'Error message formatting failed.');
+               newME = newME.addCause(ME);
+               h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.error'));
+               h_logger.logException(self.ERROR, newME);
+               newME.throw();
+            end
+
+            if ~isempty(sprintfErr)
+               h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.error'));
+               h_logger.warn(['Issue encountered with formatting of ' ...
+                  'the error message. %s\n' ...
+                  '...from format: ''%s'''], ...
+                  sprintfErr, varargin{1});
+            end
+
+            try
+               error(errmsg);
             catch ME_1
                try
                   ME_1.throwAsCaller();
@@ -582,13 +601,32 @@ classdef Logger < handle
             varargin{1}.rethrow;
          else
             try
-               error(varargin{:});
+               [errmsg, sprintfErr] = sprintf(varargin{:});
+            catch ME
+               newME = MException('csmuLogger:messagePreparationError', ...
+                  'Fatal error message formatting failed.');
+               newME = newME.addCause(ME);
+               h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.fatal'));
+               h_logger.logException(self.ERROR, newME);
+               newME.throw();
+            end
+
+            if ~isempty(sprintfErr)
+               h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.fatal'));
+               h_logger.warn(['Issue encountered with formatting of ' ...
+                  'the fatal error message. %s\n' ...
+                  '...from format: ''%s'''], ...
+                  sprintfErr, varargin{1});
+            end
+
+            try
+               error(errmsg);
             catch ME_1
                try
                   ME_1.throwAsCaller;
                catch ME_2
                   self.logException(self.FATAL, ME_2);
-                  ME_2.rethrow;
+                  ME_2.rethrow();
                end
             end
          end

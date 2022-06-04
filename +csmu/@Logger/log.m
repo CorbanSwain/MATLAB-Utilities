@@ -16,15 +16,28 @@ else
    end
 end
 
-if isstruct(varargin{1})
-   if length(varargin) > 1
-      structName = sprintf(varargin{2:end});
+try
+   if isstruct(varargin{1})
+      if length(varargin) > 1
+         [structName, sprintfErr] = sprintf(varargin{2:end});
+         sprintfFormat = varargin{2};
+      else
+         structName = 'struct';
+         sprintfErr = [];
+      end
+      message = struct2str(varargin{1}, structName);
    else
-      structName = 'struct';
+      [message, sprintfErr] = sprintf(varargin{:});
+      sprintfFormat = varargin{1};
    end
-   message = struct2str(varargin{1}, structName);
-else
-   message = sprintf(varargin{:});
+
+catch ME
+   newME = MException('csmuLogger:messagePreparationError', ...
+      'Log message formatting failed.');
+   newME = newME.addCause(ME);
+   h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.log'));
+   h_logger.logException(self.ERROR, newME);
+   newME.throw();
 end
 
 if strlength(message) == 0
@@ -32,15 +45,26 @@ if strlength(message) == 0
    % message = '[empty line]';
 end
 
+if ~(isempty(sprintfErr) || isequal(message, sprintfFormat))
+   h_logger = csmu.Logger(strcat('csmu.', mfilename(), '.log'));
+   h_logger.warn(['Issue encountered with formatting of ' ...
+      'the log message. %s\n' ...
+      '...from format: ''%s'''], ...
+      sprintfErr, sprintfFormat);
+end
+
 msgLines = splitlines(message);
 nLines = length(msgLines);
 if nLines > 1
    for iLine = 1:nLines
-      self.log(level, lineNum, char(msgLines{iLine}))
+      logHelper(self, level, name, char(msgLines{iLine}), doLog, doWindowLog);
    end
-   return
+else
+   logHelper(self, level, name, message, doLog, doWindowLog);
+end
 end
 
+function logHelper(self, level, name, message, doLog, doWindowLog)
 % If necessary write to command window
 if self.doIndent && self.indentLevel > 0
    makeLogstring = @() sprintf(['%s', self.format], ...
