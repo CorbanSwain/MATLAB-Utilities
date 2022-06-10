@@ -594,7 +594,7 @@ classdef Transform < matlab.mixin.Copyable
 
    methods (Static)
       function clearWarpImage
-         T = csmu.Transform;
+         T = csmu.Transform();
          T.warpImage('clear');
       end
       

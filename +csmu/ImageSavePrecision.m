@@ -4,6 +4,7 @@ enumeration
 
    SINGLE (-32)
    DOUBLE (-64)
+   BINARY (1)
    UINT8  (8)
    UINT10 (10)
    UINT11 (11)
@@ -32,6 +33,7 @@ properties (Dependent)
    MaximumValue
    IsInteger
    IsFloat
+   IsLogical
 
 end
 
@@ -41,6 +43,28 @@ methods
       self.HashValue = hashVal;
    end
 
+   function IPrime = float2image(self, I)
+      arguments
+         self (1, 1) csmu.ImageSavePrecision
+         I {mustBeFloat}
+      end
+
+      inputClass = class(I);
+      h_max = cast(self.MaximumValue, inputClass);
+      h_zero = cast(0, inputClass);
+
+      if self.HashValue == 1
+         IPrime = I >= 0.5;
+      else
+         IPrime = self.cast(csmu.bound(I * h_max, h_zero, h_max));
+      end
+   end
+
+   function y = cast(self, x)
+      y = cast(x, self.ClassName);
+   end
+
+   %% Get-Set Methods
    function out = get.IsInteger(self)
       out = self.HashValue > 0;
    end
@@ -49,10 +73,15 @@ methods
       out = self.HashValue < 0;
    end
 
+   function out = get.IsLogical(self)
+      out = self.HashValue == 1;
+   end
+
    function out = get.ClassName(self)
       switch self.HashValue
          case -64, out = 'double';
          case -32, out = 'single';
+         case 1, out = 'logical';
          case 8,   out = 'uint8';
          case {10, 11, 12, 13, 14, 15, 16},  out = 'uint16';
          case {24, 32}, out = 'uint32';
@@ -68,7 +97,7 @@ methods
 
    function out = get.MaximumValue(self)
       switch self.HashValue
-         case {-64, -32}, out = 1;
+         case {-64, -32, 1}, out = 1;
          case {8, 16, 32, 64}, out = intmax(self.ClassName);
          case {10, 11, 12, 13, 14, 15, 24}
             out = (2 ^ self.HashValue) - 1;
@@ -81,23 +110,7 @@ methods
       end
 
       out = double(out);         
-   end
-
-   function IPrime = float2image(self, I)
-      arguments
-         self (1, 1) csmu.ImageSavePrecision
-         I {mustBeFloat}
-      end
-
-      inputClass = class(I);
-      h_intmax = cast(self.MaximumValue, inputClass);
-      h_zero = cast(0, inputClass);
-      IPrime = self.cast(csmu.bound(I * h_intmax, h_zero, h_intmax));     
-   end
-
-   function y = cast(self, x)
-      y = cast(x, self.ClassName);
-   end
+   end  
 
 end
 
@@ -125,10 +138,12 @@ methods (Static)
          else
             tempFloatClass = DEFAULT_FLOAT;
          end
-         
-         maxVal_float = cast(nvArgs.InputType.MaximumValue, tempFloatClass);
+                  
          IPrime = cast(I, tempFloatClass);
-         IPrime = IPrime / maxVal_float;
+         if ~nvArgs.InputType.IsLogical
+            maxVal_float = cast(nvArgs.InputType.MaximumValue, tempFloatClass);
+            IPrime = IPrime / maxVal_float;            
+         end
          IPrime = nvArgs.OutputType.float2image(IPrime);
       else
          L.error(['Unexpected case reached, input type is neither integer' ...
