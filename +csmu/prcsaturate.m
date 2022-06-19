@@ -18,9 +18,10 @@ if doFullScale
    elseif p == 100
       I(:) = Inf; 
    else
-      pctCalc = prctile(I(:), 100 - p);
+      pctCalc = prctile(I, 100 - p, 'all');
       if pctCalc == 0
-         warning('The given percent value is too large, clipping all pixels.');
+         L = csmu.Logger(strcat('csmu.', mfilename()));
+         L.warn('The given percent value is too large, clipping all pixels.');
          pctCalc = min(I(I > 0));
       end
       I = I / pctCalc * gain;
@@ -28,19 +29,18 @@ if doFullScale
    % no factor to return since the image was shifted
 else
    if p == 0
-      f = 1 / max(I(:)) * gain;
+      f = 1 / max(I, [], 'all') * gain;
    elseif p == 100
-      f = 1 / min(I(:)) * gain;
+      f = 1 / min(I, [], 'all') * gain;
    else
-      f = 1 / prctile(I(:), 100 - p) * gain;
+      f = 1 / prctile(I, 100 - p, 'all') * gain;
    end
    
    I = I * f;
       
    switch nargout
-      case 1
-      case 2
-         varargout{1} = f;
+      case 1 % do nothing
+      case 2, varargout{1} = f;
    end
 end
 
