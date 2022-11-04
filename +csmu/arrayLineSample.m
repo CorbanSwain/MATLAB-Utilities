@@ -16,8 +16,7 @@ nDim = length(point);
 imRef = csmu.ImageRef(imRef);
 tform = csmu.imref2translation(imRef);
 tform.Translation = tform.Translation - 1;
-tform.DoReverse = true;
-imageCoordPoint = tform.warpPoints(point);
+imageCoordPoint = tform.warpPoints(point, 'DoInverse', true);
 
 sz = size(A);
 assert(all(imageCoordPoint >= 0.5), 'Point outside of image bounds');

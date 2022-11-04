@@ -1167,7 +1167,7 @@ classdef ResolutionMeasurement < csmu.Object
             windowSize = repmat(windowSideLength, 1, 3);
             lims = csmu.ImageRef(windowSize);
             lims.zeroCenter;
-            limShiftTransform = csmu.Transform;
+            limShiftTransform = csmu.Transform();
             limShiftTransform.TranslationRotationOrder = csmu.IndexOrdering.XY;
             limShiftTransform.Translation = point;
             lims = limShiftTransform.warpRef(lims);
@@ -1273,6 +1273,8 @@ classdef ResolutionMeasurement < csmu.Object
                      end                  
                   else
                      xLoc = mean(xEdges);
+                     xPeakVal = ...
+                        max(xl(ceil(xEdges(1)):floor(xEdges(2))), [], 'all' );
                   end
                   
                   xSqD = (xLoc - peakPoint(1)) .^ 2;
@@ -1306,6 +1308,7 @@ classdef ResolutionMeasurement < csmu.Object
                   peakBackground);
                yWidth = diff(yEdges);
                
+               
                if strcmpi(inputs.PeakLocationReference, 'center')
                   yLoc = mean(yEdges);
                   ySqD = (yLoc - peakPoint(2)) .^ 2;
@@ -1326,6 +1329,8 @@ classdef ResolutionMeasurement < csmu.Object
                      end                  
                   else
                      yLoc = mean(yEdges);
+                     yPeakVal = ...
+                        max(yl(ceil(yEdges(1)):floor(yEdges(2))), [], 'all' );
                   end
                   
                   ySqD = (yLoc - peakPoint(2)) .^ 2;
@@ -1374,6 +1379,8 @@ classdef ResolutionMeasurement < csmu.Object
                      end
                   else
                      zLoc = mean(zEdges);
+                     zPeakVal = ...
+                        max(zl(ceil(zEdges(1)):floor(zEdges(2))), [], 'all' );
                   end
                   
                   zSqD = (zLoc - peakPoint(3)) .^ 2;
@@ -1393,7 +1400,12 @@ classdef ResolutionMeasurement < csmu.Object
             
             peakPoint = [xLoc, yLoc, zLoc];
             
-            if all([xExist, yExist, zExist])                                                                                          
+            if all([xExist, yExist, zExist])    
+               if iIter == 0
+                  iIter = iIter + 1;
+                  continue
+               end
+
                rawDelta = sqrt(sumsqr(peakPoint - point));
                
                if inputs.DoRefinePointBy1DPeaks                                    
@@ -1466,6 +1478,7 @@ classdef ResolutionMeasurement < csmu.Object
          
          inputs.WindowSize = 1;
          inputs.MaxFraction = 0.5;
+         inputs.MonotonicWindowSize = 5;
          
          intensity = intensity - background;  
          inputLength = length(intensity);
@@ -1475,24 +1488,31 @@ classdef ResolutionMeasurement < csmu.Object
             inputs.WindowSize, ...
             'Endpoints', 'shrink');
          
-         if csmu.isint(loc)
-            maxIdx = loc;
+         halfWidth = floor(width / 2);
+
+         if csmu.isint(loc)            
+            testLocs = loc + ((-1 * halfWidth):halfWidth);
          else
             testLocs = [...
-               csmu.bound(ceil(loc), 1, inputLength), ...
-               csmu.bound(floor(loc), 1, inputLength)];
-            [~, tempMaxIdx] = max(...
-               searchIntensity(testLocs), [], 'all', 'linear');
-            maxIdx = testLocs(tempMaxIdx);
+               ((-1*halfWidth):0) + floor(loc), ...
+               (0:halfWidth) + ceil(loc)];          
          end         
          
+         testLocs = unique(csmu.bound(testLocs, 1, inputLength));
+         [~, tempMaxIdx] = max(searchIntensity(testLocs), [], 'all', 'linear');
+         maxIdx = testLocs(tempMaxIdx);
          widthValue = searchIntensity(maxIdx) * inputs.MaxFraction;
          
          %%% Find the Leading Edge            
          searchIdx = maxIdx;         
          isLeadingEdge = true;
-         while searchIdx > 1
-            if searchIntensity(searchIdx - 1) < widthValue
+         lookBehindWindow = zeros(1, inputs.MonotonicWindowSize);
+         lookBehindWindowIdxs = -1:-1:(-1 * inputs.MonotonicWindowSize);
+         while searchIdx > inputs.MonotonicWindowSize
+            lookBehindWindow(:) = ...
+               searchIntensity(searchIdx + lookBehindWindowIdxs);
+
+            if all(lookBehindWindow < widthValue, 'all')
                isLeadingEdge = false;
                break
             else
@@ -1517,8 +1537,13 @@ classdef ResolutionMeasurement < csmu.Object
          %%% Find the Trailing Edge
          searchIdx = maxIdx;
          isTrailingEdge = true;
-         while searchIdx < inputLength
-            if searchIntensity(searchIdx + 1) < widthValue
+         lookAheadWindow = zeros(1, inputs.MonotonicWindowSize);
+         lookAheadWindowIdxs = 1:1:(inputs.MonotonicWindowSize);
+         while searchIdx < (inputLength - inputs.MonotonicWindowSize)
+            lookAheadWindow(:) = ...
+               searchIntensity(searchIdx + lookAheadWindowIdxs);
+
+            if all(lookAheadWindow < widthValue, 'all')
                isTrailingEdge = false;
                break
             else

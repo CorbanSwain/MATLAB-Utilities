@@ -112,7 +112,7 @@ classdef Transform < matlab.mixin.Copyable
       
       function P = warpPoints(self, P, nvArgs)       
          arguments
-            self Transform
+            self csmu.Transform
             P
             nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
          end
@@ -121,13 +121,13 @@ classdef Transform < matlab.mixin.Copyable
 
          doInverse = self.determineInverseState(nvArgs.DoInverse, L);
 
-         affineObj = self.computeAffineObject(self, doInverse);
+         affineObj = self.computeAffineObject('DoInverse', doInverse);
          P = affineObj.transformPointsForward(P);
       end
       
       function [varargout] = warpImage(self, I, nvArgs)
          arguments
-            self Transform
+            self csmu.Transform
             I
             nvArgs.WarpArgs (1, :) cell = {}
             nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
@@ -184,7 +184,7 @@ classdef Transform < matlab.mixin.Copyable
       
       function warpedRef = warpRef(self, imref, nvArgs)
          arguments
-            self Transform
+            self csmu.Transform
             imref
             nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
          end
@@ -196,7 +196,7 @@ classdef Transform < matlab.mixin.Copyable
          imref = csmu.ImageRef(imref);       
          newOutLims = cell(1, self.NumDims);
          [newOutLims{:}] = self.computeOutputLimits(...
-            'InputsLimits', imref.WorldLimits, ...
+            'InputLimits', imref.WorldLimits, ...
             'DoInverse', doInverse);
          
          warpedRef = csmu.ImageRef();
@@ -213,7 +213,7 @@ classdef Transform < matlab.mixin.Copyable
             
       function [varargout] = computeOutputLimits(self, nvArgs)
          arguments
-            self Transform
+            self csmu.Transform
             nvArgs.DoInverse {csmu.validators.mustBeLogicalScalarOrEmpty} = []
             nvArgs.InputLimits = {}
          end
@@ -332,7 +332,7 @@ classdef Transform < matlab.mixin.Copyable
 
       function set.OutputView(self, x)
          if self.DoUseMutualView
-            L = csmu.Logger('csmu.', mfilename(), 'set.OutputView');
+            L = csmu.Logger(strcat('csmu.', mfilename(), 'set.OutputView'));
             L.error(['OutputView cannot be set if using mutual views, set' ...
                'DoUseMutualView property to false before setting.']);
          else
@@ -357,13 +357,13 @@ classdef Transform < matlab.mixin.Copyable
       
       function out = get.Inverse(self)
          % FIXME ... this could cause an issue with subclasses
-         L = csmu.Logger('csmu.', mfilename(), '.get.Inverse');
-         L.warn(['Do not use the `Inverse` property']);
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.get.Inverse'));
+         L.warn('Do not use the `Inverse` property');
          out = csmu.Transform(self.AffineObj.invert);
       end
       
       function out = get.Affine3D(self)
-         L = csmu.Logger('csmu.', mfilename(), '.get.Affine3D');
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.get.Affine3D'));
          L.warn(['Do not get the `Affine3d` property instead call' ...
             ' the `computeAffineObject` method.'])
          assert(self.NumDims == 3);
@@ -371,7 +371,7 @@ classdef Transform < matlab.mixin.Copyable
       end
       
       function out = get.Affine2D(self)
-         L = csmu.Logger('csmu.', mfilename(), '.get.Affine2D');
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.get.Affine2D'));
          L.warn(['Do not get the `Affine2D` property instead call' ...
             ' the `computeAffineObject` method.'])
          assert(self.NumDims == 2);
@@ -388,7 +388,7 @@ classdef Transform < matlab.mixin.Copyable
       end
       
       function out = get.AffineObj(self)
-        L = csmu.Logger('csmu.', mfilename(), '.get.AffineObj');
+        L = csmu.Logger(strcat('csmu.', mfilename(), '.get.AffineObj'));
         L.warn(['Do not get the `AffineObj` property instead call' ...
            ' the `computeAffineObject` method.'])
         out = self.computeAffineObject("DoInverse", self.DoReverse);
@@ -400,9 +400,9 @@ classdef Transform < matlab.mixin.Copyable
             nvArgs.DoInverse = false
          end
 
-         csmu.validators.notImplemented(self.DoReverse);
+         % csmu.validators.notImplemented(self.DoReverse);
 
-         L = csmu.Logger('csmu.', mfilename(), '.computeAffineObject');
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.computeAffineObject'));
          if ~isempty(self.AffineCache)
             if ~isempty(self.Rotation) || ~isempty(self.Translation)
                L.warn(['Defaulting to use the provided the AffineObj \n', ...
@@ -531,7 +531,7 @@ classdef Transform < matlab.mixin.Copyable
       end
       
       function set.DoReverse(self, val)
-         L = csmu.Logger('csmu.', mfilename(), '.set.DoReverse');
+         L = csmu.Logger(strcat('csmu.', mfilename(), '.set.DoReverse'));
          L.warn(['Do not set `DoReverse`, instead set as an argument when ' ...
             'calling `warpImage`, `warpPoints`, `computeAffineMatrix` or ' ...
             'other method which requires determining the transform array.']);
@@ -540,12 +540,12 @@ classdef Transform < matlab.mixin.Copyable
       end
 
       function out = get.DoReverse(self)
-         L = csmu.Logger('csmu.', mfilename(), '.get.DoReverse');
-         L.debug(['Do not use `DoReverse`, instead set as an argument when ' ...
-            'calling `warpImage`, `warpPoints`, `computeAffineMatrix` or ' ...
-            'other method which requires determining the transform array.']);
+         % L = csmu.Logger(strcat('csmu.', mfilename(), '.get.DoReverse'));
+         % L.debug(['Do not use `DoReverse`, instead set as an argument when ' ...
+         %    'calling `warpImage`, `warpPoints`, `computeAffineMatrix` or ' ...
+         %    'other method which requires determining the transform array.']);
 
-         self.DoReverse = val;
+         out = self.DoReverse;
       end
 
       function out = get.DoInverse(self)
