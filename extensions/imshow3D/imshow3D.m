@@ -156,7 +156,7 @@ else
             curSlice = squeeze(Img(:,:,S,i));
             imagesc(curSlice./max(curSlice(:)));
             hold on;
-            if exist('labels')
+            if exist('labels', 'var')
                 title([labels(i)],'FontSize',10,'Interpreter','none');
             else
                 title([' sum: ',num2str(sum(curSlice(:)))],'FontSize',10,'Interpreter','none');
@@ -386,3 +386,11 @@ set(gcf,'ResizeFcn', @figureResized);
 
 end
 % -=< Maysam Shahedi (mshahedi@gmail.com), September 22, 2016>=-
+
+function h = subplottight(n,m,i)
+[c,r] = ind2sub([m n], i);
+ax = subplot('Position', [(c-1)/m, 1-(r)/n, 1/m, 1/n]);
+if(nargout > 0)
+    h = ax;
+end
+end
